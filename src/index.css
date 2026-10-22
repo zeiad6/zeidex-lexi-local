@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Academic palette: warm paper by day, ink-blue at night. */
+:root {
+  --background: oklch(0.975 0.012 85);
+  --foreground: oklch(0.24 0.03 260);
+  --card: oklch(0.993 0.006 85);
+  --muted: oklch(0.94 0.014 85);
+  --muted-foreground: oklch(0.48 0.025 260);
+  --border: oklch(0.88 0.018 85);
+  --primary: oklch(0.32 0.06 262);
+  --primary-foreground: oklch(0.98 0.01 85);
+  --accent: oklch(0.66 0.12 70);
+  --accent-foreground: oklch(0.2 0.03 260);
+  --success: oklch(0.55 0.13 150);
+  --danger: oklch(0.56 0.18 27);
+  --ring: oklch(0.66 0.12 70);
+}
+
+.dark {
+  --background: oklch(0.18 0.025 262);
+  --foreground: oklch(0.93 0.015 85);
+  --card: oklch(0.22 0.03 262);
+  --muted: oklch(0.27 0.03 262);
+  --muted-foreground: oklch(0.7 0.02 85);
+  --border: oklch(0.32 0.03 262);
+  --primary: oklch(0.8 0.1 75);
+  --primary-foreground: oklch(0.2 0.03 262);
+  --accent: oklch(0.75 0.11 72);
+  --accent-foreground: oklch(0.18 0.025 262);
+  --success: oklch(0.72 0.14 150);
+  --danger: oklch(0.7 0.16 27);
+  --ring: oklch(0.75 0.11 72);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-ring: var(--ring);
+  --font-sans: "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Source Serif 4", "Amiri", Georgia, serif;
+}
+
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-background text-foreground font-sans antialiased;
+}
+
+:lang(ar) .font-display {
+  font-family: "Amiri", "Source Serif 4", serif;
+}
+
+*:focus-visible {
+  @apply outline-2 outline-offset-2 outline-ring;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

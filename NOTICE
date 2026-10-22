@@ -1,0 +1,26 @@
+Zeidex Lexi Local
+Copyright (c) 2026 ZeidexSoft — https://zeidexsoft.com
+Developer: https://zeidexlink.zeidexsoft.com/zeidex
+
+Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
+Any commercial use — selling, hosting as a paid service, bundling in a commercial product,
+or use inside a for-profit organization's operations — requires a written commercial license
+from ZeidexSoft. See COMMERCIAL.md.
+
+Anyone who redistributes this software or any part of it must keep this NOTICE file, the
+LICENSE file and every "Required Notice:" line intact, as the license requires.
+
+This product includes third-party open-source components, each under its own license:
+  - WebLLM (@mlc-ai/web-llm) — Apache-2.0
+  - Transformers.js (@huggingface/transformers) — Apache-2.0
+  - ONNX Runtime Web — MIT
+  - PDF.js (pdfjs-dist) — Apache-2.0
+  - React — MIT
+  - Tailwind CSS — MIT
+  - lucide-react — ISC
+  - class-variance-authority, clsx, tailwind-merge — MIT / Apache-2.0
+  - qrcode — MIT
+  - Anthropic TypeScript SDK (@anthropic-ai/sdk) — MIT
+  - Electron — MIT
+Model weights downloaded at runtime (Qwen, Llama, etc.) are licensed by their publishers and are
+not distributed with this software.

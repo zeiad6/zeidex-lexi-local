@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" role="img" aria-label="Zeidex Lexi Local — summarize papers and books privately in your browser">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b2644"/>
+      <stop offset="1" stop-color="#0d1322"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".2" cy=".4" r=".6">
+      <stop offset="0" stop-color="#d9a25b" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#d9a25b" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" x2="1">
+      <stop offset="0" stop-color="#f3c77a"/>
+      <stop offset="1" stop-color="#c98d33"/>
+    </linearGradient>
+    <linearGradient id="scan" x1="0" x2="1">
+      <stop offset="0" stop-color="#f3c77a" stop-opacity="0"/>
+      <stop offset=".5" stop-color="#f3c77a" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#f3c77a" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="docClip"><rect x="96" y="70" width="260" height="260" rx="18"/></clipPath>
+    <style>
+      .t { font-family: "Segoe UI", "Helvetica Neue", Arial, "Noto Sans Arabic", sans-serif; }
+      .scan { animation: scan 3.2s ease-in-out infinite; }
+      .line { stroke-dasharray: 160; stroke-dashoffset: 160; animation: draw 3.2s ease-out infinite; }
+      .l2 { animation-delay: .35s; } .l3 { animation-delay: .7s; } .l4 { animation-delay: 1.05s; }
+      .chip { animation: pulse 2.4s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+      .c2 { animation-delay: .8s; } .c3 { animation-delay: 1.6s; }
+      .spark { animation: spin 8s linear infinite; transform-origin: 400px 92px; }
+      .dot { animation: float 4s ease-in-out infinite; }
+      .d2 { animation-delay: 1.3s; } .d3 { animation-delay: 2.6s; }
+      @keyframes scan { 0% { transform: translateY(0); opacity: 0 } 10% { opacity: 1 } 90% { opacity: 1 } 100% { transform: translateY(250px); opacity: 0 } }
+      @keyframes draw { 0%, 30% { stroke-dashoffset: 160 } 60%, 100% { stroke-dashoffset: 0 } }
+      @keyframes pulse { 0%, 100% { opacity: .55 } 50% { opacity: 1 } }
+      @keyframes spin { to { transform: rotate(360deg) } }
+      @keyframes float { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-10px) } }
+      @media (prefers-reduced-motion: reduce) { * { animation: none !important; } .line { stroke-dashoffset: 0; } }
+    </style>
+  </defs>
+
+  <rect width="1280" height="400" fill="url(#bg)"/>
+  <rect width="1280" height="400" fill="url(#glow)"/>
+  <circle class="dot" cx="1120" cy="80" r="4" fill="#f3c77a" opacity=".6"/>
+  <circle class="dot d2" cx="1190" cy="300" r="3" fill="#9aa6c4" opacity=".6"/>
+  <circle class="dot d3" cx="1030" cy="340" r="5" fill="#f3c77a" opacity=".4"/>
+
+  <!-- document being read -->
+  <rect x="96" y="70" width="260" height="260" rx="18" fill="#fbf6ec"/>
+  <g clip-path="url(#docClip)">
+    <g stroke="#b7bfd3" stroke-width="9" stroke-linecap="round">
+      <path d="M126 108h200M126 136h170M126 164h190M126 192h150M126 220h184M126 248h130M126 276h176M126 304h120"/>
+    </g>
+    <rect class="scan" x="96" y="70" width="260" height="6" fill="url(#scan)"/>
+  </g>
+
+  <!-- summary appearing -->
+  <g transform="translate(232 0)">
+    <rect x="160" y="110" width="200" height="180" rx="16" fill="#151d31" stroke="#2e3a58"/>
+    <!-- solid colour: an objectBoundingBox gradient on a zero-height line renders nothing -->
+    <g stroke="#e9b465" stroke-width="10" stroke-linecap="round">
+      <path class="line" d="M188 150h140"/>
+      <path class="line l2" d="M188 186h110"/>
+      <path class="line l3" d="M188 222h128"/>
+      <path class="line l4" d="M188 258h90"/>
+    </g>
+  </g>
+  <path d="M370 200h14" stroke="#f3c77a" stroke-width="4" stroke-linecap="round" stroke-dasharray="2 8"/>
+  <g class="spark"><path d="M400 62l9 22 22 8-22 9-9 22-9-22-22-9 22-8z" fill="url(#gold)"/></g>
+
+  <!-- title -->
+  <text class="t" x="680" y="150" fill="#fbf6ec" font-size="58" font-weight="700">Zeidex Lexi Local</text>
+  <text class="t" x="682" y="196" fill="#c9cfdd" font-size="24">Summaries, quizzes and Q&amp;A for papers and books</text>
+  <text class="t" x="682" y="230" fill="#c9cfdd" font-size="24">لخّص الأبحاث والكتب بخصوصية تامة داخل متصفحك</text>
+
+  <g class="t" font-size="18" font-weight="600">
+    <g class="chip"><rect x="682" y="262" width="118" height="38" rx="19" fill="#26355c"/><text x="741" y="287" fill="#f3c77a" text-anchor="middle">WebGPU</text></g>
+    <g class="chip c2"><rect x="812" y="262" width="150" height="38" rx="19" fill="#26355c"/><text x="887" y="287" fill="#f3c77a" text-anchor="middle">100% private</text></g>
+    <g class="chip c3"><rect x="974" y="262" width="176" height="38" rx="19" fill="#26355c"/><text x="1062" y="287" fill="#f3c77a" text-anchor="middle">العربية · English</text></g>
+  </g>
+  <text class="t" x="682" y="344" fill="#7f8aa6" font-size="16">by ZeidexSoft</text>
+</svg>

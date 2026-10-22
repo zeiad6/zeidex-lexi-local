@@ -1,0 +1,20 @@
+# docker compose up -d   →   http://localhost:8787
+services:
+  lexi:
+    build: .
+    image: zeidex-lexi-local:latest
+    restart: unless-stopped
+    ports:
+      - "8787:8787" # HTTP (this machine)
+      - "8788:8788" # HTTPS for other devices on the LAN (self-signed; WebGPU needs it)
+    environment:
+      # The container can't see the host's LAN IP. Set both to it, e.g. 192.168.1.20, so the Share
+      # dialog shows https://192.168.1.20:8788/ and the self-signed certificate covers that address.
+      LEXI_PUBLIC_URL: ""   # e.g. https://192.168.1.20:8788/
+      LEXI_CERT_HOSTS: ""   # e.g. 192.168.1.20
+      # Extra hosts the cloud proxy may reach (comma-separated), e.g. your own vLLM server.
+      LEXI_PROXY_ALLOW: ""
+    volumes:
+      - lexi-data:/data
+volumes:
+  lexi-data:

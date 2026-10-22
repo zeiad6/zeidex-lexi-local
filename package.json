@@ -1,0 +1,110 @@
+{
+  "name": "zeidex-lexi-local",
+  "productName": "Zeidex Lexi Local",
+  "version": "1.0.0",
+  "description": "Private, in-browser summarizer, quiz maker and document Q&A for papers and books — local WebGPU models, optional cloud providers.",
+  "private": true,
+  "type": "module",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "author": {
+    "name": "ZeidexSoft",
+    "email": "info@zeidexsoft.com",
+    "url": "https://zeidexlink.zeidexsoft.com/zeidex"
+  },
+  "homepage": "https://github.com/zeiad6/zeidex-lexi-local",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zeiad6/zeidex-lexi-local.git"
+  },
+  "main": "electron/main.mjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run && node --test server/server.test.mjs",
+    "serve": "node server/server.mjs --open",
+    "share": "npm run build && node server/server.mjs --lan --open",
+    "desktop": "npm run build && electron .",
+    "dist:win": "npm run build && electron-builder --win msi --publish never",
+    "dist:linux": "npm run build && electron-builder --linux AppImage deb tar.gz --publish never"
+  },
+  "build": {
+    "appId": "com.zeidexsoft.lexilocal",
+    "productName": "Zeidex Lexi Local",
+    "copyright": "Copyright © 2026 ZeidexSoft",
+    "artifactName": "Zeidex-Lexi-Local-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "server/server.mjs",
+      "electron/**",
+      "src/providers.json",
+      "build/icon.png",
+      "LICENSE",
+      "NOTICE",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "msi",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "msi": {
+      "oneClick": false,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Zeidex Lexi Local",
+      "upgradeCode": "{B6186367-0325-42D7-BC50-3EBE0BB9983A}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "tar.gz"
+      ],
+      "category": "Education",
+      "icon": "build/icon.png",
+      "maintainer": "ZeidexSoft <info@zeidexsoft.com>",
+      "synopsis": "Private document summarizer and quiz maker",
+      "executableArgs": []
+    }
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^1.1.0",
+    "@huggingface/transformers": "^4.3.1",
+    "@mlc-ai/web-llm": "^0.2.86",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.5",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "@webgpu/types": "^0.1.74",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.15.3",
+    "lucide-react": "^1.61.0",
+    "pdfjs-dist": "^6.4.299",
+    "qrcode": "^1.5.4",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwind-merge": "^3.7.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  }
+}
