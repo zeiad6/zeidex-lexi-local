@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { android } from "./native";
 
 export interface Toast {
   id: number;
@@ -17,7 +18,9 @@ const emit = () => listeners.forEach((l) => l());
 export function notify(t: Omit<Toast, "id">) {
   toasts = [...toasts, { ...t, id: nextId++ }];
   emit();
-  if (typeof document !== "undefined" && document.hidden && "Notification" in window && Notification.permission === "granted") {
+  if (typeof document === "undefined" || !document.hidden) return;
+  if (android) android.notify(t.title, t.body ?? "");
+  else if ("Notification" in window && Notification.permission === "granted") {
     new Notification(t.title, { body: t.body, icon: "./icon.svg" });
   }
 }

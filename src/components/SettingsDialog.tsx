@@ -7,6 +7,7 @@ import { About } from "@/components/About";
 import { useI18n, type Lang } from "@/i18n";
 import { listModels, PROVIDERS } from "@/lib/cloud";
 import { download } from "@/lib/history";
+import { runAppUpdateCheck } from "@/lib/updateCheck";
 import { notify } from "@/lib/notify";
 import {
   DEFAULTS,
@@ -152,6 +153,16 @@ const SECTIONS: { id: SectionId; label: L; fields: Field[] }[] = [
         help: { ar: "يحفظ التعليمات والإجابات لتصديرها لاحقًا كمجموعة بيانات تدريب.", en: "Keeps prompts and answers to export later as a training dataset." },
       },
       { key: "checkModelUpdates", type: "toggle", label: { ar: "التنبيه عند توفر تحديثات للنماذج", en: "Notify about model updates" } },
+      {
+        key: "checkAppUpdates",
+        type: "toggle",
+        label: { ar: "التحقق التلقائي من تحديثات التطبيق", en: "Check for app updates automatically" },
+        help: {
+          ar: "يومًا بيوم من zeidexsoft.com. لا يُثبَّت أي تحديث إلا إذا طابق توقيعه مفتاح ZeidexSoft وشهادة التطبيق المثبّت.",
+          en: "Daily from zeidexsoft.com. An update is installed only if its signature matches the ZeidexSoft key and the installed app's certificate.",
+        },
+      },
+      { key: "updateUrl", type: "text", label: { ar: "عنوان ملف التحديثات", en: "Update manifest URL" } },
     ],
   },
   { id: "about", label: { ar: "عن البرنامج", en: "About" }, fields: [] },
@@ -404,6 +415,12 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
           {current.fields.map((f) => (
             <FieldRow key={f.key} field={f} lang={lang} />
           ))}
+          {section === "data" && (
+            <Button variant="outline" size="sm" onClick={() => runAppUpdateCheck(t, true)}>
+              <ListRestart />
+              {t.checkUpdatesNow}
+            </Button>
+          )}
           {section === "data" && "Notification" in window && Notification.permission === "default" && (
             <Button variant="outline" size="sm" onClick={() => Notification.requestPermission()}>
               {lang === "ar" ? "السماح بإشعارات النظام" : "Allow system notifications"}

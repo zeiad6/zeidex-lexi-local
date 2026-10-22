@@ -4,11 +4,12 @@
 // Desktop shell for Windows (MSI) and Linux (AppImage/deb). It runs the bundled server in-process
 // and opens the app in a hardened window. Electron ships Chromium, so WebGPU works the same on
 // every distro instead of depending on the system WebView (WebKitGTK has no WebGPU).
-import { app, BrowserWindow, Menu, session, shell } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, session, shell } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+const UPDATE_CHECK_EVERY_MS = 12 * 3600 * 1000;
 
 app.commandLine.appendSwitch("enable-unsafe-webgpu");
 app.commandLine.appendSwitch("ignore-gpu-blocklist");
@@ -35,7 +36,7 @@ async function createWindow() {
     title: "Zeidex Lexi Local",
     icon: path.join(HERE, "..", "build", "icon.png"),
     autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
+    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, preload: path.join(HERE, "preload.cjs") },
   });
 
   // Links to the developer site, donation pages and API-key consoles open in the user's browser.
@@ -53,8 +54,21 @@ async function createWindow() {
   await win.loadURL(server.url);
 }
 
+async function updates(manual) {
+  const { checkForUpdates } = await import("./updater.mjs");
+  return checkForUpdates({ manual, win });
+}
+
+ipcMain.handle("lexi:check-updates", (_e, manual) => updates(manual));
+ipcMain.handle("lexi:app-info", () => ({ version: app.getVersion(), platform: process.platform }));
+
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
+  // Packaged builds check zeidexsoft.com shortly after start and twice a day; dev runs never self-update.
+  if (app.isPackaged) {
+    setTimeout(() => updates(false), 15000);
+    setInterval(() => updates(false), UPDATE_CHECK_EVERY_MS);
+  }
   const allowed = new Set(["notifications", "clipboard-sanitized-write", "clipboard-read"]);
   session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(allowed.has(permission)));
   createWindow();

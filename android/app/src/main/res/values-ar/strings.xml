@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">لِكسي المحلي</string>
+    <string name="ch_jobs">المهام الجارية</string>
+    <string name="ch_results">النتائج المكتملة</string>
+    <string name="ch_updates">تحديثات التطبيق</string>
+    <string name="job_running">يعمل في الخلفية…</string>
+    <string name="battery_title">متابعة المهام الطويلة؟</string>
+    <string name="battery_body">قد يستغرق تلخيص كتاب كامل أو تنزيل نموذج وقتًا طويلًا. اسمح للتطبيق بالعمل دون قيود البطارية حتى لا يوقفه Android عند إطفاء الشاشة. يمكنك تغيير ذلك لاحقًا من إعدادات النظام.</string>
+    <string name="allow">السماح</string>
+    <string name="not_now">ليس الآن</string>
+    <string name="later">لاحقًا</string>
+    <string name="update_available">الإصدار %1$s متاح</string>
+    <string name="update_tap">انقر لمراجعة التحديث الموقَّع وتثبيته</string>
+    <string name="update_now">حدِّث الآن</string>
+    <string name="update_downloading">جارٍ تنزيل التحديث…</string>
+    <string name="update_verified_note">هذا التحديث موقَّع من ZeidexSoft، ولا يُثبَّت إلا إذا طابق توقيعه وشهادته هذا التطبيق.</string>
+    <string name="update_failed">فشل التحديث: %1$s</string>
+    <string name="up_to_date">لديك أحدث إصدار</string>
+    <string name="allow_install_title">السماح بالتحديثات من التطبيق</string>
+    <string name="allow_install_body">لتثبيت التحديثات المنزَّلة من zeidexsoft.com، اسمح للتطبيق بتثبيت التطبيقات، ثم انقر «حدِّث» مرة أخرى.</string>
+    <string name="open_settings">فتح الإعدادات</string>
+    <string name="saved_to">حُفظ في %1$s</string>
+    <string name="share_app">إرسال لِكسي المحلي</string>
+</resources>

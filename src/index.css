@@ -50,7 +50,7 @@
   --color-danger: var(--danger);
   --color-ring: var(--ring);
   --font-sans: "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Source Serif 4", "Amiri", Georgia, serif;
+  --font-display: "Source Serif 4 Variable", "Amiri", Georgia, serif;
 }
 
 html {
@@ -65,7 +65,12 @@ body {
 }
 
 :lang(ar) .font-display {
-  font-family: "Amiri", "Source Serif 4", serif;
+  font-family: "Amiri", "Source Serif 4 Variable", serif;
+}
+
+/* Notches, rounded corners and gesture bars (iOS PWA, Android edge-to-edge, foldables). */
+body {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 *:focus-visible {

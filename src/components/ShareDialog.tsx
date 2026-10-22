@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/i18n";
 import { notify } from "@/lib/notify";
+import { android } from "@/lib/native";
+import { BRAND } from "@/brand";
 
 /** Shape returned by server/server.mjs GET /api/lan. */
 interface LanInfo {
@@ -31,6 +33,7 @@ export function ShareDialog({ open, onClose }: { open: boolean; onClose: () => v
   const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
+    if (android) return setInfo("static");
     try {
       const res = await fetch("./api/lan", { cache: "no-store" });
       setInfo(res.ok && res.headers.get("content-type")?.includes("json") ? await res.json() : "static");
@@ -63,6 +66,16 @@ export function ShareDialog({ open, onClose }: { open: boolean; onClose: () => v
     <Modal open={open} onClose={onClose} title={t.shareTitle} closeLabel={t.close}>
       {info === null ? (
         <p className="text-sm text-muted-foreground">…</p>
+      ) : info === "static" && android ? (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t.shareAppDesc}</p>
+          <Button variant="accent" onClick={() => android!.shareApp()}>
+            <Share2 /> {t.shareApp}
+          </Button>
+          <Button variant="outline" onClick={() => android!.share(`${BRAND.app} — ${BRAND.website}/programs`, BRAND.app)}>
+            <Copy /> {t.shareLink}
+          </Button>
+        </div>
       ) : info === "static" ? (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">{t.shareStatic}</p>

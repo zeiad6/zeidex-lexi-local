@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monochrome open book for the status bar. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M11.25,5.2C9.3,3.95 6.3,3.6 3,4.05L3,18.1C6.3,17.65 9.3,18 11.25,19.25ZM12.75,5.2L12.75,19.25C14.7,18 17.7,17.65 21,18.1L21,4.05C17.7,3.6 14.7,3.95 12.75,5.2Z" />
+</vector>

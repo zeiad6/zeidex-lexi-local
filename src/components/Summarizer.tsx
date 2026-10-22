@@ -8,7 +8,8 @@ import { FormattedText } from "@/components/FormattedText";
 import { useI18n, type Lang } from "@/i18n";
 import { abortAll } from "@/lib/engine";
 import { errorText } from "@/lib/errors";
-import { recorder, saveRun, titleOf, useHistory } from "@/lib/history";
+import { download, recorder, saveRun, titleOf, useHistory } from "@/lib/history";
+import { copyText, job } from "@/lib/native";
 import { Rating } from "@/components/HistoryDialog";
 import { Aborted, estimateCalls, summarize, type Quality, type SummaryProgress } from "@/lib/pipeline";
 import type { SummaryFormat } from "@/lib/prompts";
@@ -52,6 +53,7 @@ export function Summarizer({
     setError("");
     setEntryId(null);
     const rec = recorder();
+    job.start(t.summaryTitle);
     try {
       const text = await summarize({
         chunks,
@@ -62,14 +64,19 @@ export function Summarizer({
         model,
         keyTerms,
         signal: controller.current.signal,
-        onProgress: setProgress,
+        onProgress: (p) => {
+          setProgress(p);
+          job.progress(t.summaryTitle, p.step, p.total);
+        },
         onToken: setOutput,
         record: rec.record,
       });
       setOutput(text);
+      job.end(t.summaryTitle, titleOf(text), true);
       setEntryId(await saveRun("summary", { docName, title: titleOf(text), lang: outLang, quality, output: text }, rec));
     } catch (e) {
       if (!(e instanceof Aborted)) setError(errorText(e, t));
+      job.end(t.summaryTitle, e instanceof Aborted ? t.stop : errorText(e, t), false);
     } finally {
       setProgress(null);
     }
@@ -159,7 +166,7 @@ export function Summarizer({
                 variant="outline"
                 size="sm"
                 onClick={async () => {
-                  await navigator.clipboard.writeText(output);
+                  await copyText(output);
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1500);
                 }}
@@ -170,15 +177,7 @@ export function Summarizer({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  const url = URL.createObjectURL(new Blob([output], { type: "text/markdown;charset=utf-8" }));
-                  const a = Object.assign(document.createElement("a"), {
-                    href: url,
-                    download: `${docName.replace(/\.[^.]+$/, "")}-summary.md`,
-                  });
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
+                onClick={() => download(`${docName.replace(/\.[^.]+$/, "")}-summary.md`, output, "text/markdown;charset=utf-8")}
               >
                 <Download aria-hidden />
                 {t.download}

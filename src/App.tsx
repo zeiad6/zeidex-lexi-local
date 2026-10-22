@@ -35,6 +35,8 @@ import { dictionaries, I18nContext, type Lang } from "@/i18n";
 import { resolveProvider } from "@/lib/cloud";
 import { checkGpu, type GpuReport } from "@/lib/gpu";
 import { refreshHistory } from "@/lib/history";
+import { android, job } from "@/lib/native";
+import { runAppUpdateCheck } from "@/lib/updateCheck";
 import { useEngine } from "@/lib/llm-client";
 import { recommendModel, WEBGPU_MODELS, type ModelOption } from "@/lib/models";
 import { Bm25, keywords } from "@/lib/nlp";
@@ -95,9 +97,30 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
     write("theme", dark ? "dark" : "light");
+    android?.setSystemBars(dark);
   }, [dark]);
 
+  // The Android daily update job runs without the page, so it needs these two settings natively.
+  useEffect(() => android?.configureUpdates(settings.checkAppUpdates, settings.updateUrl), [settings.checkAppUpdates, settings.updateUrl]);
+
   useEffect(() => write("quality", quality), [quality]);
+
+  useEffect(() => {
+    const id = setTimeout(() => runAppUpdateCheck(dictionaries[lang], false), 5000);
+    return () => clearTimeout(id);
+    // Once per launch; the check itself is rate-limited to once a day.
+  }, []);
+
+  // Model downloads run for minutes: keep the Android process alive and show progress in a notification.
+  // Deliberately keyed on status/progress only: `t` and `engine.model` changing must not restart the job.
+  useEffect(() => {
+    if (engine.status === "loading") job.start(t.modelJob);
+    else if (engine.status === "ready") job.end(t.modelJob, engine.model ?? "", true);
+    else if (engine.status === "error") job.end(t.modelJob, engine.error ?? "", false);
+  }, [engine.status]);
+  useEffect(() => {
+    if (engine.status === "loading") job.progress(t.modelJob, Math.round(engine.progress * 100), 100);
+  }, [engine.progress]);
 
   const provider = resolveProvider(settings);
   const localOk = engine.status === "ready";

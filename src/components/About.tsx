@@ -1,6 +1,8 @@
 import { ExternalLink, FolderGit2, Globe, Heart } from "lucide-react";
 import { BRAND } from "@/brand";
 import { useI18n } from "@/i18n";
+import { APP_VERSION } from "@/lib/appUpdate";
+import { platform } from "@/lib/native";
 
 export function About({ onDonate }: { onDonate?: () => void }) {
   const { t } = useI18n();
@@ -11,6 +13,9 @@ export function About({ onDonate }: { onDonate?: () => void }) {
         <img src="./icon.svg" alt="" className="size-12" />
         <div>
           <p className="font-display text-lg font-semibold">{BRAND.app}</p>
+          <p className="text-xs text-muted-foreground" dir="ltr">
+            {t.version} {APP_VERSION} · {platform}
+          </p>
           <p className="text-sm text-muted-foreground">
             {t.developedBy}{" "}
             <a className="font-semibold text-foreground underline-offset-4 hover:underline" href={BRAND.developerUrl} target="_blank" rel="noreferrer">

@@ -2,3 +2,16 @@ node_modules
 dist
 release
 *.log
+# Android build output and local SDK paths
+android/.gradle
+android/build
+android/app/build
+android/local.properties
+# Signing material never lives in the repo (see scripts/release-keys.mjs)
+*.jks
+*.p12
+*.pfx
+*.keystore
+signing.properties
+secrets.env
+*-private.pem

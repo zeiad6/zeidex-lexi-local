@@ -53,6 +53,9 @@ export interface Settings {
   historyEnabled: boolean;
   saveTrainingPairs: boolean;
   checkModelUpdates: boolean;
+  checkAppUpdates: boolean;
+  /** Signed manifest published on zeidexsoft.com (see scripts/release-manifest.mjs). */
+  updateUrl: string;
 }
 
 export const DEFAULTS: Settings = {
@@ -86,6 +89,8 @@ export const DEFAULTS: Settings = {
   historyEnabled: true,
   saveTrainingPairs: true,
   checkModelUpdates: true,
+  checkAppUpdates: true,
+  updateUrl: "https://zeidexsoft.com/updates/lexi-local.json",
 };
 
 /** Bounds for numeric settings; values outside are clamped, so a bad import can't break the app. */

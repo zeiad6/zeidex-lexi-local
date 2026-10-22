@@ -1,6 +1,7 @@
 // Cloud generation: the Anthropic SDK for Claude, a streaming fetch client for every
 // OpenAI-compatible API (OpenAI, Gemini, OpenRouter, Groq, Mistral, Ollama, ...).
 import catalog from "@/providers.json";
+import { nativeFetch } from "./native";
 import type { ChatMessage } from "./prompts";
 import type { ProviderConfig, Settings } from "./settings";
 
@@ -35,12 +36,16 @@ export function resolveProvider(s: Settings, id = s.activeProvider): ResolvedPro
   const model = cfg?.model || def.defaultModel;
   const apiKey = cfg?.apiKey ?? "";
   if (!baseUrl || !model || (def.needsKey && !apiKey)) return null;
-  const endpoint = s.useProxy ? `${location.origin}/api/proxy/${id}` : baseUrl;
-  const proxyHeaders: Record<string, string> = s.useProxy && cfg?.baseUrl ? { "x-lexi-base-url": cfg.baseUrl } : {};
+  const proxied = s.useProxy && !nativeFetch;
+  const endpoint = proxied ? `${location.origin}/api/proxy/${id}` : baseUrl;
+  const proxyHeaders: Record<string, string> = proxied && cfg?.baseUrl ? { "x-lexi-base-url": cfg.baseUrl } : {};
   return { def, apiKey, model, baseUrl, endpoint, proxyHeaders, maxTokens: cfg?.maxTokens ?? (def.kind === "anthropic" ? 16000 : 4096) };
 }
 
 export class CloudError extends Error {}
+
+// On Android requests run natively (no CORS); elsewhere the browser fetch or the local proxy.
+const http: typeof fetch = nativeFetch ?? ((...a) => fetch(...a));
 
 /** Browsers report a CORS block as a bare network TypeError; say what actually helps. */
 function explain(e: unknown, p: ResolvedProvider): never {
@@ -57,7 +62,7 @@ function explain(e: unknown, p: ResolvedProvider): never {
 // Loaded on first use so Local-only users never download the SDK.
 async function anthropicClient(p: Pick<ResolvedProvider, "apiKey" | "endpoint" | "proxyHeaders">) {
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  return new Anthropic({ apiKey: p.apiKey, baseURL: p.endpoint, dangerouslyAllowBrowser: true, defaultHeaders: p.proxyHeaders });
+  return new Anthropic({ apiKey: p.apiKey, baseURL: p.endpoint, dangerouslyAllowBrowser: true, defaultHeaders: p.proxyHeaders, fetch: http });
 }
 
 const splitSystem = (messages: ChatMessage[]) => ({
@@ -128,7 +133,7 @@ async function openaiGenerate(
   if (p.def.id === "openrouter") headers["X-Title"] = "Zeidex Lexi Local";
 
   const send = (body: object) =>
-    fetch(`${p.endpoint}/chat/completions`, { method: "POST", headers, body: JSON.stringify(body), signal });
+    http(`${p.endpoint}/chat/completions`, { method: "POST", headers, body: JSON.stringify(body), signal });
 
   let res = await send({ model: p.model, messages, stream: true, max_tokens: p.maxTokens, temperature, top_p: topP });
   if (res.status === 400) {
@@ -186,7 +191,7 @@ export async function listModels(p: Omit<ResolvedProvider, "model"> & { model?: 
       for await (const m of client.models.list()) ids.push(m.id);
       return ids;
     }
-    const res = await fetch(`${p.endpoint}/models`, { headers: { ...p.proxyHeaders, ...(p.apiKey ? { Authorization: `Bearer ${p.apiKey}` } : {}) } });
+    const res = await http(`${p.endpoint}/models`, { headers: { ...p.proxyHeaders, ...(p.apiKey ? { Authorization: `Bearer ${p.apiKey}` } : {}) } });
     if (!res.ok) throw new CloudError(`HTTP ${res.status}`);
     const json = await res.json();
     return ((json.data ?? json.models ?? []) as { id?: string; name?: string }[])

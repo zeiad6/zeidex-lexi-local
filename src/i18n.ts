@@ -171,6 +171,16 @@ const en = {
   sourceCode: "Source code",
   licenseNote: "Free for non-commercial use under PolyForm Noncommercial 1.0.0. Commercial use requires written permission from ZeidexSoft.",
   via: "via",
+  version: "Version",
+  checkUpdatesNow: "Check for updates now",
+  upToDate: "You have the latest version",
+  appUpdateAvailable: (v: string) => `Version ${v} is available`,
+  downloadUpdate: "Download",
+  updateCheckFailed: "Could not check for updates",
+  shareApp: "Send the app to a nearby device",
+  shareAppDesc: "Shares this signed APK through Quick Share, Bluetooth or any app. The other phone can install it directly.",
+  shareLink: "Share the download link",
+  modelJob: "Preparing the model",
   offlineReady: "Available offline",
 };
 
@@ -341,6 +351,16 @@ const ar: Dict = {
   sourceCode: "الكود المصدري",
   licenseNote: "مجاني للاستخدام غير التجاري وفق ترخيص PolyForm Noncommercial 1.0.0. الاستخدام التجاري يتطلب إذنًا مكتوبًا من ZeidexSoft.",
   via: "عبر",
+  version: "الإصدار",
+  checkUpdatesNow: "التحقق من التحديثات الآن",
+  upToDate: "لديك أحدث إصدار",
+  appUpdateAvailable: (v: string) => `الإصدار ${v} متاح`,
+  downloadUpdate: "تنزيل",
+  updateCheckFailed: "تعذّر التحقق من التحديثات",
+  shareApp: "إرسال التطبيق إلى جهاز قريب",
+  shareAppDesc: "يشارك ملف APK الموقَّع عبر Quick Share أو البلوتوث أو أي تطبيق، ويمكن للهاتف الآخر تثبيته مباشرة.",
+  shareLink: "مشاركة رابط التنزيل",
+  modelJob: "تجهيز النموذج",
   offlineReady: "متاح دون اتصال",
 };
 

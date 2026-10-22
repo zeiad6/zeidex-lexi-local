@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Lexi Local</string>
+    <string name="ch_jobs">Running jobs</string>
+    <string name="ch_results">Finished results</string>
+    <string name="ch_updates">App updates</string>
+    <string name="job_running">Working in the background…</string>
+    <string name="battery_title">Keep long jobs running?</string>
+    <string name="battery_body">Summarizing a whole book or downloading a model can take a while. Allow Lexi Local to run without battery restrictions so Android does not stop it when the screen is off. You can change this later in system settings.</string>
+    <string name="allow">Allow</string>
+    <string name="not_now">Not now</string>
+    <string name="later">Later</string>
+    <string name="update_available">Version %1$s is available</string>
+    <string name="update_tap">Tap to review and install the signed update</string>
+    <string name="update_now">Update now</string>
+    <string name="update_downloading">Downloading update…</string>
+    <string name="update_verified_note">This update is signed by ZeidexSoft. It is installed only if its signature and certificate match this app.</string>
+    <string name="update_failed">Update failed: %1$s</string>
+    <string name="up_to_date">You have the latest version</string>
+    <string name="allow_install_title">Allow updates from Lexi Local</string>
+    <string name="allow_install_body">To install updates downloaded from zeidexsoft.com, allow Lexi Local to install apps, then tap Update again.</string>
+    <string name="open_settings">Open settings</string>
+    <string name="saved_to">Saved to %1$s</string>
+    <string name="share_app">Send Lexi Local</string>
+</resources>

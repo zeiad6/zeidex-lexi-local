@@ -8,6 +8,7 @@ import { useI18n, type Lang } from "@/i18n";
 import { abortAll } from "@/lib/engine";
 import { errorText } from "@/lib/errors";
 import { recorder, saveRun, useHistory } from "@/lib/history";
+import { job } from "@/lib/native";
 import { Rating } from "@/components/HistoryDialog";
 import { generateStudySet, type Quality, type StudyResult } from "@/lib/pipeline";
 import type { Flashcard, Mcq } from "@/lib/text";
@@ -46,6 +47,7 @@ export function Study({
     setEntryId(null);
     setProgress({ step: 0, total: 1 });
     const rec = recorder();
+    job.start(t.studyTitle);
     try {
       const s = await generateStudySet({
         chunks,
@@ -54,10 +56,14 @@ export function Study({
         quality,
         constrained,
         signal: controller.current.signal,
-        onProgress: (step, total) => setProgress({ step, total }),
+        onProgress: (step, total) => {
+          setProgress({ step, total });
+          job.progress(t.studyTitle, step, total);
+        },
         record: rec.record,
       });
       setSet(s);
+      job.end(t.studyTitle, `${s.mcqs.length} · ${s.flashcards.length}`, s.mcqs.length + s.flashcards.length > 0);
       if (!s.mcqs.length && !s.flashcards.length) setError(t.noItems);
       else {
         const output = [...s.mcqs.map((m, i) => `${i + 1}. ${m.question}\n• ${m.options[m.answer]}`), ...s.flashcards.map((f) => `Q: ${f.question}\nA: ${f.answer}`)].join("\n\n");
@@ -65,6 +71,7 @@ export function Study({
       }
     } catch (e) {
       setError(errorText(e, t));
+      job.end(t.studyTitle, errorText(e, t), false);
     } finally {
       setProgress(null);
     }

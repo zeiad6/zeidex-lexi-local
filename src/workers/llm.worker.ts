@@ -3,6 +3,9 @@
 import type { MLCEngine } from "@mlc-ai/web-llm";
 import type { TextGenerationPipeline, InterruptableStoppingCriteria } from "@huggingface/transformers";
 import type { WorkerRequest, WorkerResponse } from "./protocol";
+// Bundled ONNX Runtime files: Transformers.js would otherwise fetch them from a CDN, breaking offline use.
+import ortWasm from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url";
+import ortMjs from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url";
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -33,7 +36,8 @@ async function loadWebGpu(model: string, contextTokens: number) {
 }
 
 async function loadCpu(model: string, dtype: string) {
-  const { pipeline } = await import("@huggingface/transformers");
+  const { pipeline, env } = await import("@huggingface/transformers");
+  if (env.backends.onnx.wasm) env.backends.onnx.wasm.wasmPaths = { wasm: ortWasm, mjs: ortMjs };
   cpuPipeline = (await pipeline("text-generation", model, {
     device: "wasm",
     dtype: dtype as "q4",

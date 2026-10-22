@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Eraser, FileText, Upload, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n";
 import { extractFile, type ExtractedDoc } from "@/lib/pdf";
+import { onOpenFile } from "@/lib/native";
 import { cn } from "@/lib/utils";
 
 export function Importer({
@@ -24,6 +25,9 @@ export function Importer({
   const [drag, setDrag] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState("");
+
+  // "Open with / Share to Lexi" on Android hands files over through the bridge.
+  useEffect(() => onOpenFile((f) => handle(f)));
 
   async function handle(file: File | undefined) {
     if (!file) return;

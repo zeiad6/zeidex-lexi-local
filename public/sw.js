@@ -1,12 +1,8 @@
 // App-shell cache so the UI opens offline. Model weights are NOT handled here:
 // WebLLM and Transformers.js keep them in their own Cache Storage buckets.
-const CACHE = "lexi-shell-v2";
-const CACHEABLE_ORIGINS = [
-  self.location.origin,
-  "https://fonts.googleapis.com",
-  "https://fonts.gstatic.com",
-  "https://cdn.jsdelivr.net", // onnxruntime-web WASM for the CPU fallback
-];
+const CACHE = "lexi-shell-v3";
+// Everything the app needs is bundled; only same-origin requests are cached.
+const CACHEABLE_ORIGINS = [self.location.origin];
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => {

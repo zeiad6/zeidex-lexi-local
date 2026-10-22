@@ -109,11 +109,7 @@ export function toTrainingJsonl(list: HistoryEntry[], onlyLiked: boolean): strin
     .join("\n");
 }
 
-export function download(name: string, content: string, type: string) {
-  const url = URL.createObjectURL(new Blob([content], { type }));
-  Object.assign(document.createElement("a"), { href: url, download: name }).click();
-  URL.revokeObjectURL(url);
-}
+export { saveFile as download } from "./native";
 
 /** Collects pairs for one job, then saves the entry when history is on. */
 export function recorder() {

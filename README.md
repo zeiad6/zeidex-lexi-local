@@ -28,7 +28,8 @@
 - **Model update alerts.** The app checks Hugging Face for new revisions of your downloaded models, and updates them in one click.
 - **Runtime settings.** Engine, models, context size, token budgets, temperature, chunking, cleanup, retrieval, prompts and providers can all be changed in Settings while the app runs. No rebuild is needed. You can export, import or reset them.
 - **Share on your LAN.** Share it with one click: a QR code, the best network address, self-signed HTTPS (WebGPU needs a secure context), and the exact firewall command for your OS.
-- **Runs anywhere:** a static website, Docker, or a desktop app (Windows MSI; Linux AppImage, deb and tar.gz). It also works offline once the models are cached.
+- **Runs anywhere:** a static website, Docker, a desktop app (Windows MSI; Linux AppImage, deb and tar.gz), or a native **Android app**. Every package is self-contained: the fonts and the ONNX runtime are bundled, so only the model weights are downloaded.
+- **Signed auto-updates from zeidexsoft.com.** Android and desktop apps verify an ECDSA-signed manifest, the file hash and the app's signing certificate before they install anything.
 
 ## Execution modes
 
@@ -104,6 +105,29 @@ npm run dist:linux     # on Linux   → release/*.AppImage, *.deb, *.tar.gz
 
 Pushing a `v*` tag runs `.github/workflows/release.yml`, which builds both packages and attaches them to the release.
 
+### Android
+
+Install `Zeidex-Lexi-Local-x.y.z-android.apk` from Releases or zeidexsoft.com. It runs on Android 8+ phones, tablets, foldables and Chromebooks; WebGPU needs Android 12+ and a recent WebView.
+
+The app is written in Kotlin with no third-party libraries. It loads the bundled web app from a secure in-app origin and adds native features:
+
+| Native feature | Why |
+|---|---|
+| Foreground service + notifications | Book-length summaries and model downloads keep running with the screen off, with live progress |
+| Startup permissions | Notifications (Android 13+); an optional battery-optimization exemption, explained first |
+| Native HTTP bridge | Cloud providers work without CORS limits, and responses still stream |
+| "Open with" / "Share to" | Send a PDF or text from any app straight into Lexi |
+| Save to Downloads | Summaries and datasets are saved through MediaStore; no storage permission is needed |
+| Share the app | Sends the signed APK to a nearby phone through Quick Share or Bluetooth |
+| Daily signed update check | Notifies you of a new version; installs only after the signature, hash and certificate checks pass |
+
+To build it yourself:
+
+```bash
+npm run build
+cd android && ./gradlew assembleRelease   # signs with ~/.zeidex-keys/lexi-local/signing.properties
+```
+
 ### Static hosting
 
 `npm run build` produces `dist/`, built with relative paths. Deploy it to GitHub Pages, Netlify, Vercel or any static host. Over HTTPS, local WebGPU and offline caching work. Cloud mode works too, for providers that allow browser CORS.
@@ -129,6 +153,30 @@ Defaults are tuned for 4K-context browser models. If something fails on your dev
 | You want another model | Enter any WebLLM prebuilt id under *Custom WebLLM model*, or any Transformers.js ONNX repo under *CPU model* |
 
 Every field has a ↺ button that restores its default value.
+
+## Updates and signatures
+
+| Package | Signature | What the app checks before updating |
+|---|---|---|
+| Android APK | APK Signature Scheme v2/v3 (ZeidexSoft release key) | Manifest signature, SHA-256, package name, signing certificate equals the installed app's |
+| Windows MSI | Authenticode (set `WIN_CSC_LINK`) | Manifest signature, SHA-256, Authenticode signer thumbprint |
+| Linux AppImage / deb / tar.gz | Listed in the signed `SHA256SUMS` / manifest | Manifest signature, SHA-256 |
+| Update manifest `lexi-local.json` | ECDSA P-256 (`keys/update-public.pem` is built into every app) | — |
+
+**Release flow:**
+
+1. Run `node scripts/release-keys.mjs init` once. It creates all keys in `~/.zeidex-keys/lexi-local/`, outside the repo. **Back that folder up**: losing the Android key means installed apps can never be updated.
+2. Tag a version. CI builds and signs every package, then runs `scripts/release-manifest.mjs`, which writes the signed `lexi-local.json`, `SHA256SUMS` and `SHA256SUMS.sig`.
+3. Upload the installers to `https://zeidexsoft.com/downloads/lexi-local/`, and `lexi-local.json` to `https://zeidexsoft.com/updates/lexi-local.json`. The browser build reads that JSON cross-origin, so serve it with `Access-Control-Allow-Origin: *`.
+
+To verify a download yourself:
+
+```bash
+openssl dgst -sha256 -verify keys/update-public.pem -signature SHA256SUMS.sig SHA256SUMS
+sha256sum -c SHA256SUMS --ignore-missing
+```
+
+The bundled Windows certificate is self-signed. Windows SmartScreen still warns until the MSI is signed with a certificate from a public CA (OV/EV, or Azure Trusted Signing). Swap it in through `WIN_CSC_LINK`.
 
 ## Privacy and security
 
