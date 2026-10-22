@@ -78,33 +78,40 @@ export function HistoryDialog({ open, onClose }: { open: boolean; onClose: () =>
             const expanded = openId === e.id;
             return (
               <li key={e.id} className="rounded-lg border border-border">
-                <div className="flex flex-wrap items-center gap-3 p-3">
-                  <Icon className="size-5 shrink-0 text-accent" aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium" dir="auto">
-                      {e.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      <span dir="auto">{e.docName}</span> · {new Date(e.createdAt).toLocaleString(lang === "ar" ? "ar" : "en")}
-                    </p>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      <Badge>{e.mode}</Badge>
-                      <Badge>{e.quality}</Badge>
-                      {e.models.map((m) => (
-                        <Badge key={m} variant="accent">
-                          <span dir="ltr">{m}</span>
-                        </Badge>
-                      ))}
-                      <Badge>{e.pairs.length} pairs</Badge>
+                {/* Phones: title on its own full-width line, actions underneath; side by side from sm up. */}
+                <div className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:gap-3">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <Icon className="mt-0.5 size-5 shrink-0 text-accent" aria-hidden />
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-2 text-sm font-medium [overflow-wrap:anywhere]" dir="auto">
+                        {e.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
+                        <span dir="auto">{e.docName}</span> · {new Date(e.createdAt).toLocaleString(lang === "ar" ? "ar" : "en")}
+                      </p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        <Badge>{e.mode}</Badge>
+                        <Badge>{e.quality}</Badge>
+                        {e.models.map((m) => (
+                          <Badge key={m} variant="accent" className="max-w-full">
+                            <span dir="ltr" className="truncate">
+                              {m.replace(/-q\d\w*-MLC$/, "")}
+                            </span>
+                          </Badge>
+                        ))}
+                        <Badge>{e.pairs.length} pairs</Badge>
+                      </div>
                     </div>
                   </div>
-                  <Rating id={e.id} rating={e.rating} />
-                  <Button variant="outline" size="sm" onClick={() => setOpenId(expanded ? null : e.id)}>
-                    {expanded ? t.hide : t.view}
-                  </Button>
-                  <Button variant="ghost" size="icon" className="size-8" aria-label={t.deleteEntry} onClick={() => deleteHistory(e.id)}>
-                    <Trash2 />
-                  </Button>
+                  <div className="flex items-center gap-1 self-end sm:self-auto">
+                    <Rating id={e.id} rating={e.rating} />
+                    <Button variant="outline" size="sm" onClick={() => setOpenId(expanded ? null : e.id)}>
+                      {expanded ? t.hide : t.view}
+                    </Button>
+                    <Button variant="ghost" size="icon" className="size-8" aria-label={t.deleteEntry} onClick={() => deleteHistory(e.id)}>
+                      <Trash2 />
+                    </Button>
+                  </div>
                 </div>
                 {expanded && (
                   <div className="max-h-96 overflow-y-auto border-t border-border bg-muted/50 p-4 text-sm [overflow-wrap:anywhere]" dir={e.lang === "ar" ? "rtl" : "ltr"}>
