@@ -83,6 +83,16 @@ test("study keeps verified questions and shuffles answer positions consistently"
   for (const m of r.mcqs) expect(["energy", "ribosome"]).toContain(m.options[m.answer]);
 });
 
+test("ask translates a cross-language question into search terms before giving up", async () => {
+  const passages = ["Mitochondria produce energy for the cell.", "Rivers flow to the sea."];
+  const index = new Bm25(passages);
+  // The mocked model answers every "ask" call with "Cells make energy [1].", which is also what the
+  // translation step returns, so the English passage about energy is retrieved for an Arabic question.
+  const a = await ask({ question: "ما الذي ينتج الطاقة في الخلية؟", passages, index, budgetChars: 4000, lang: "ar", onToken: () => {} });
+  expect(a?.sources[0].text).toBe(passages[0]);
+  expect(calls.filter((c) => c === "ask")).toHaveLength(2);
+});
+
 test("ask retrieves passages and returns null when nothing matches", async () => {
   const passages = ["Mitochondria produce energy.", "Rivers flow to the sea."];
   const index = new Bm25(passages);

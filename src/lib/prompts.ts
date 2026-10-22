@@ -139,6 +139,17 @@ Question: ${question}`,
   ];
 }
 
+/** Cross-lingual retrieval: turn a question into search keywords in the document's language. */
+export function queryTranslatePrompt(question: string, docLanguage: "Arabic" | "English"): ChatMessage[] {
+  return [
+    { role: "system", content: "You turn questions into search keywords. Output only the keywords on one line." },
+    {
+      role: "user",
+      content: `Translate this question into ${docLanguage} search keywords: 5 to 10 important words, no punctuation, no explanation.\n\n${question}`,
+    },
+  ];
+}
+
 export const OPTION_LETTERS = ["A", "B", "C", "D"] as const;
 
 /** Self-check: the model answers its own question blind; disagreement with the key flags a bad item. */

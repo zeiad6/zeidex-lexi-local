@@ -15,3 +15,4 @@ android/local.properties
 signing.properties
 secrets.env
 *-private.pem
+brag-output*

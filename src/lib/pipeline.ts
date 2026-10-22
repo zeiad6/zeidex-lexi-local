@@ -8,6 +8,7 @@ import {
   finalPrompt,
   mergeNotesPrompt,
   OPTION_LETTERS,
+  queryTranslatePrompt,
   refinePrompt,
   STUDY_SCHEMA,
   studyPrompt,
@@ -245,7 +246,21 @@ export async function ask(opts: {
   onToken: (full: string) => void;
   record?: Recorder;
 }): Promise<Answer | null> {
-  const hits = opts.index.search(opts.question, 8);
+  let hits = opts.index.search(opts.question, 8);
+  // An Arabic question about an English paper (or the reverse) shares no words with it, so BM25
+  // finds nothing. Ask the model for search terms in the document's language and retrieve again.
+  if (!hits.length) {
+    const docArabic = arabicRatio(opts.passages.slice(0, 5).join(" ")) > 0.5;
+    if (docArabic !== arabicRatio(opts.question) > 0.5) {
+      const r = await generate("ask", queryTranslatePrompt(opts.question, docArabic ? "Arabic" : "English"), {
+        maxTokens: 60,
+        temperature: 0,
+        record: opts.record,
+      });
+      if (r.aborted) throw new Aborted();
+      hits = opts.index.search(stripThinking(r.text), 8);
+    }
+  }
   if (!hits.length) return null;
   const sources: Answer["sources"] = [];
   let used = 0;
