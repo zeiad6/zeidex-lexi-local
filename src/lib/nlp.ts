@@ -5,7 +5,7 @@ const AR_MARKS = /[ؐ-ًؚ-ٰٟۖ-ۭـ]/g; // diacritics + tatweel
 
 const STOPWORDS = new Set(
   (
-    "the and for are but not you all any can had her was one our out has have from this that with they will would there their what which when where who whom been being into than then them these those such some more most other only also very just over under about after before between through during while each both because could should does doing were your its itself here how why may might must shall upon within without however therefore thus hence using used based figure table et al page pages chapter section mostly often usually many much well like " +
+    "the and for are but not you all any can had her was one our out has have from this that with they will would there their what which when where who whom been being into than then them these those such some more most other only also very just over under about after before between through during while each both because could should does doing were your its itself here how why may might must shall upon within without however therefore thus hence using used based figure table et al page pages chapter section mostly often usually many much well like http https www doi org com html pdf " +
     "في من على الى عن مع هذا هذه ذلك تلك التي الذي الذين اللذان اللتان هو هي هم هن انت انا نحن كان كانت يكون تكون كل بعض غير بين عند حتى اذا اذ ثم او ام لكن بل قد لقد لا لم لن ما ماذا متى اين كيف لماذا هل ايضا كما بعد قبل حيث مثل منذ خلال ضمن دون فوق تحت عبر وهو وهي وقد وفي ومن وعلى والى وعن ان انه انها الا"
   ).split(" "),
 );
@@ -50,6 +50,8 @@ export function arabicRatio(text: string): number {
   return all ? ar / all : 0;
 }
 
+const MAX_TERM_CHARS = 24;
+
 /** TF-IDF keywords across documents (chunks). Returns readable surface forms, not stems. */
 export function keywords(docs: string[], k = 12): string[] {
   const df = new Map<string, number>();
@@ -73,7 +75,8 @@ export function keywords(docs: string[], k = 12): string[] {
   }
   const n = docs.length;
   return [...tf.entries()]
-    .filter(([term]) => term.length > 3)
+    // Very long "terms" are words glued together by PDF extraction, not vocabulary.
+    .filter(([term]) => term.length > 3 && term.length <= MAX_TERM_CHARS)
     .map(([term, f]) => [term, Math.log(1 + f) * Math.log(1 + n / (df.get(term) ?? 1))] as const)
     .sort((a, b) => b[1] - a[1])
     .slice(0, k)

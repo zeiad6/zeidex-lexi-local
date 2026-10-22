@@ -120,7 +120,7 @@ export function Importer({
         )}
 
         {doc && !progress && (doc.removedLines > 0 || doc.referencesCut) && (
-          <p className="flex items-start gap-2 text-xs text-muted-foreground">
+          <p className="flex items-start gap-2 text-xs text-muted-foreground [overflow-wrap:anywhere]">
             <Eraser className="mt-0.5 size-3.5 shrink-0 text-success" aria-hidden />
             {[doc.removedLines > 0 && t.cleanedLines(doc.removedLines), doc.referencesCut && t.refsCut].filter(Boolean).join(" · ")}
           </p>
@@ -131,8 +131,8 @@ export function Importer({
             <p className="text-xs font-medium text-muted-foreground">{t.keyTerms}</p>
             <ul className="flex flex-wrap gap-1.5">
               {keyTerms.map((k) => (
-                <li key={k}>
-                  <Badge variant="accent" dir="auto">
+                <li key={k} className="min-w-0 max-w-full">
+                  <Badge variant="accent" dir="auto" title={k} className="block max-w-full truncate">
                     {k}
                   </Badge>
                 </li>

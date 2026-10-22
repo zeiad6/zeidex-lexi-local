@@ -210,8 +210,9 @@ export default function App() {
           </div>
         </header>
 
-        <main className="mx-auto grid w-full max-w-6xl flex-1 gap-6 px-4 py-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-          <div className="space-y-6">
+        {/* grid-cols-1 = minmax(0,1fr): an unbreakable word must never widen the phone layout (Android WebView zooms out). */}
+        <main className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-6 px-4 py-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+          <div className="min-w-0 space-y-6">
             <Importer doc={doc} chunkCount={chunks.length} keyTerms={keyTerms} onDoc={setDoc} />
             <EngineDashboard gpu={gpu} selected={model} recommended={recommended} onSelect={setModel} />
           </div>

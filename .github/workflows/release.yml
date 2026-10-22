@@ -1,45 +1,186 @@
-# Builds every package on a version tag (git tag v1.0.0 && git push --tags), signs them, and
-# attaches them plus the signed update manifest to the GitHub Release.
+# Builds, tests and signs every package, then publishes them with the signed update manifest.
 #
-# Required repository secrets (values from ~/.zeidex-keys/lexi-local, see scripts/release-keys.mjs):
+# Resuming instead of rebuilding:
+#   * "Re-run failed jobs" re-runs only what failed; finished jobs keep their uploaded outputs.
+#   * Run workflow → resume_run_id=<an earlier run id>: every job first tries to reuse its output
+#     from that run and only builds what is missing there.
+#   * npm, Gradle and Electron caches make whatever does rebuild incremental.
+#
+# Repository secrets (values from ~/.zeidex-keys/lexi-local, see scripts/release-keys.mjs):
 #   ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS
-#   WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD     (Authenticode; skipped if empty)
-#   UPDATE_SIGNING_KEY                     (ECDSA P-256 PEM for lexi-local.json)
-#   WIN_SIGNER_SHA1                        (optional: thumbprint the desktop updater must see)
+#   WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD, WIN_SIGNER_SHA1   (Authenticode; skipped if empty)
+#   UPDATE_SIGNING_KEY                                     (ECDSA P-256 PEM for lexi-local.json)
 name: Release
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      resume_run_id:
+        description: "Reuse finished outputs from this earlier run id (optional)"
+        required: false
+        default: ""
 permissions:
   contents: write
+  actions: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  RESUME: ${{ inputs.resume_run_id }}
+
 jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - id: reuse
+        if: env.RESUME != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: dist
+          run-id: ${{ env.RESUME }}
+          github-token: ${{ github.token }}
+      - uses: actions/setup-node@v4
+        if: steps.reuse.outcome != 'success'
+        with:
+          node-version: 22
+          cache: npm
+      - if: steps.reuse.outcome != 'success'
+        run: npm ci
+      - if: steps.reuse.outcome != 'success'
+        run: npm run build
+      - if: steps.reuse.outcome != 'success'
+        run: npm test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: dist
+          if-no-files-found: error
+
+  android:
+    needs: web
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - id: reuse
+        if: env.RESUME != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: android
+          path: release
+          run-id: ${{ env.RESUME }}
+          github-token: ${{ github.token }}
+      - if: steps.reuse.outcome != 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: dist
+      - if: steps.reuse.outcome != 'success'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - if: steps.reuse.outcome != 'success'
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+      - name: Build signed APK
+        if: steps.reuse.outcome != 'success'
+        working-directory: android
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          LEXI_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          LEXI_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          LEXI_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_B64" || { echo "::error::ANDROID_KEYSTORE_B64 secret is missing; refusing to publish an unsigned APK"; exit 1; }
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.p12"
+          export LEXI_KEYSTORE_FILE="$RUNNER_TEMP/release.p12"
+          ./gradlew assembleRelease --build-cache --no-daemon
+          rm -f "$RUNNER_TEMP/release.p12"
+      - name: Verify signature
+        if: steps.reuse.outcome != 'success'
+        run: |
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name apksigner | sort -V | tail -1)
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /dev/stderr | grep -q "Verified using v2 scheme (APK Signature Scheme v2): true"
+          VERSION=$(node -p "require('./package.json').version")
+          mkdir -p release && cp "$APK" "release/Zeidex-Lexi-Local-$VERSION-android.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: release/*.apk
+          if-no-files-found: error
+
   desktop:
+    needs: web
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
             target: --win msi
+            name: desktop-windows
           - os: ubuntu-latest
             target: --linux AppImage deb tar.gz
+            name: desktop-linux
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - id: reuse
+        if: env.RESUME != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: release
+          run-id: ${{ env.RESUME }}
+          github-token: ${{ github.token }}
+      - if: steps.reuse.outcome != 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: dist
+      - if: steps.reuse.outcome != 'success'
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm run build
-      - run: npm test
-      - run: npx electron-builder ${{ matrix.target }} --publish never
+      - if: steps.reuse.outcome != 'success'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - if: steps.reuse.outcome != 'success'
+        run: npm ci
+      - name: Package (signed when a certificate is configured)
+        if: steps.reuse.outcome != 'success'
         env:
-          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          # An empty CSC_LINK makes electron-builder fail, so only export it when the secret exists.
+          if [ -n "$WIN_CSC_LINK" ]; then export CSC_LINK="$WIN_CSC_LINK" CSC_KEY_PASSWORD="$WIN_CSC_KEY_PASSWORD"; fi
+          npx electron-builder ${{ matrix.target }} --publish never
       - uses: actions/upload-artifact@v4
         with:
-          name: desktop-${{ matrix.os }}
+          name: ${{ matrix.name }}
           path: |
             release/*.msi
             release/*.AppImage
@@ -47,47 +188,10 @@ jobs:
             release/*.tar.gz
           if-no-files-found: error
 
-  android:
+  publish:
+    needs: [android, desktop]
     runs-on: ubuntu-latest
-    env:
-      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-      - run: npm ci
-      - run: npm run build
-      - name: Decode signing key
-        run: echo "${{ secrets.ANDROID_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/release.p12"
-      - name: Build signed APK
-        working-directory: android
-        env:
-          LEXI_KEYSTORE_FILE: ${{ runner.temp }}/release.p12
-          LEXI_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          LEXI_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          LEXI_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        run: ./gradlew assembleRelease --no-daemon
-      - name: Verify signature
-        run: |
-          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name apksigner | sort -V | tail -1)
-          APK=android/app/build/outputs/apk/release/app-release.apk
-          "$APKSIGNER" verify --verbose --print-certs "$APK"
-          mkdir -p release && cp "$APK" "release/Zeidex-Lexi-Local-${GITHUB_REF_NAME#v}-android.apk"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: android
-          path: release/*.apk
-          if-no-files-found: error
-
-  manifest:
-    needs: [desktop, android]
-    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -95,13 +199,21 @@ jobs:
           node-version: 22
       - uses: actions/download-artifact@v4
         with:
+          name: android
+          path: release
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
           path: release
           merge-multiple: true
       - name: Sign update manifest
         env:
           UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
           WIN_SIGNER_SHA1: ${{ secrets.WIN_SIGNER_SHA1 }}
-        run: node scripts/release-manifest.mjs --dir release
+        run: |
+          test -n "$UPDATE_SIGNING_KEY" || { echo "::error::UPDATE_SIGNING_KEY secret is missing"; exit 1; }
+          node scripts/release-manifest.mjs --dir release
+          ls -la release
       - uses: actions/upload-artifact@v4
         with:
           name: update-manifest
@@ -113,3 +225,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: release/*
+          fail_on_unmatched_files: true

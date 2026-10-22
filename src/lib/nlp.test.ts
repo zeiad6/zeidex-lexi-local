@@ -33,6 +33,12 @@ test("keywords surfaces document-specific terms in readable form", () => {
   expect(k).toContain("proteins");
 });
 
+test("keywords ignores glued PDF tokens", () => {
+  const glued = "الذكاءالاصطناعيوالتعلمالعميقفيمعالجةاللغات";
+  const k = keywords([`${glued} ${glued} التعلم الشبكات`, `${glued} الشبكات العصبية`], 10);
+  expect(k.some((w) => w.length > 24)).toBe(false);
+});
+
 test("compress keeps the requested share and original order", () => {
   const text = Array.from({ length: 20 }, (_, i) => `Sentence ${i} talks about topic${i % 5} details.`).join(" ");
   const out = compress(text, 0.4);

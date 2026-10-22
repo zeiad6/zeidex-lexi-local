@@ -120,7 +120,7 @@ export function Ask({
         <ol className="space-y-4">
           {turns.map((turn) => (
             <li key={turn.id} className="rounded-lg border border-border p-4" dir={turn.lang === "ar" ? "rtl" : "ltr"} lang={turn.lang}>
-              <p className="mb-2 font-semibold" dir="auto">
+              <p className="mb-2 font-semibold [overflow-wrap:anywhere]" dir="auto">
                 {turn.question}
               </p>
               {!turn.answer ? (
@@ -144,7 +144,7 @@ export function Ask({
                         <li
                           key={s.n}
                           dir="auto"
-                          className={
+                          className={"[overflow-wrap:anywhere] " + 
                             openSource === `${turn.id}:${s.n}` ? "rounded-md bg-accent/15 p-2" : "rounded-md bg-muted p-2"
                           }
                         >

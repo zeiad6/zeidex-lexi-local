@@ -107,7 +107,7 @@ export function HistoryDialog({ open, onClose }: { open: boolean; onClose: () =>
                   </Button>
                 </div>
                 {expanded && (
-                  <div className="max-h-96 overflow-y-auto border-t border-border bg-muted/50 p-4 text-sm" dir={e.lang === "ar" ? "rtl" : "ltr"}>
+                  <div className="max-h-96 overflow-y-auto border-t border-border bg-muted/50 p-4 text-sm [overflow-wrap:anywhere]" dir={e.lang === "ar" ? "rtl" : "ltr"}>
                     <FormattedText text={e.output} />
                   </div>
                 )}

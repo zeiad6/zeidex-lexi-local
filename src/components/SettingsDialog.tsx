@@ -1,17 +1,19 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, Eye, EyeOff, ListRestart, RotateCcw, Upload } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { About } from "@/components/About";
 import { useI18n, type Lang } from "@/i18n";
-import { listModels, PROVIDERS } from "@/lib/cloud";
+import { CloudError, listModels, PROVIDERS, resolveEndpoint } from "@/lib/cloud";
+import { nativeFetch } from "@/lib/native";
 import { download } from "@/lib/history";
 import { runAppUpdateCheck } from "@/lib/updateCheck";
 import { notify } from "@/lib/notify";
 import {
   DEFAULTS,
   exportSettings,
+  getSettings,
   importSettings,
   LIMITS,
   resetSettings,
@@ -223,30 +225,81 @@ function FieldRow({ field, lang }: { field: Field; lang: Lang }) {
   );
 }
 
+// Model lists per provider+key for this session, so reopening Settings does not refetch.
+const modelCache = new Map<string, string[]>();
+
+function errorMessage(e: unknown, lang: Lang): string {
+  const tr = (ar: string, en: string) => (lang === "ar" ? ar : en);
+  if (e instanceof CloudError) {
+    if (e.code === "auth") return tr("المفتاح مرفوض (401/403): تأكد من نسخه كاملًا وأنه مفعّل لدى المزوّد.", "Key rejected (401/403): check it was copied fully and is active.");
+    if (e.code === "cors")
+      return tr(
+        "المتصفح منع الاتصال بهذا المزوّد (CORS). استخدم تطبيق Android أو سطح المكتب، أو فعّل «الوسيط المحلي» مع npm run serve أو Docker.",
+        "The browser blocked this provider (CORS). Use the Android or desktop app, or turn on “Use local proxy” with npm run serve or Docker.",
+      );
+    return e.message;
+  }
+  return e instanceof Error ? e.message : String(e);
+}
+
 function ProviderEditor({ lang }: { lang: Lang }) {
   const s = useSettings();
   const def = PROVIDERS.find((p) => p.id === s.activeProvider) ?? PROVIDERS[0];
   const cfg = s.providers[def.id] ?? { apiKey: "", model: "", baseUrl: "", maxTokens: def.kind === "anthropic" ? 16000 : 4096 };
   const [showKey, setShowKey] = useState(false);
   const [models, setModels] = useState<string[]>([]);
-  const [status, setStatus] = useState("");
-  const input = "h-9 w-full rounded-md border border-border bg-background px-3 text-sm";
-  const save = (patch: Partial<typeof cfg>) => updateSettings({ providers: { ...s.providers, [def.id]: { ...cfg, ...patch } } });
+  const [filter, setFilter] = useState("");
+  const [status, setStatus] = useState<{ kind: "idle" | "loading" | "ok" | "error"; text: string }>({ kind: "idle", text: "" });
+  const [manual, setManual] = useState(false);
+  const input = "h-9 w-full min-w-0 rounded-md border border-border bg-background px-3 text-sm";
   const tr = (ar: string, en: string) => (lang === "ar" ? ar : en);
+  // Always read the freshest settings when saving: the debounced fetch below may finish later.
+  const save = (patch: Partial<typeof cfg>) => {
+    const now = getSettings();
+    const base = now.providers[def.id] ?? cfg;
+    updateSettings({ providers: { ...now.providers, [def.id]: { ...base, ...patch } } });
+  };
+  const canFetch = !!(cfg.baseUrl || def.baseUrl) && (!def.needsKey || cfg.apiKey.length >= 8);
+  const cacheKey = `${def.id}|${cfg.baseUrl}|${cfg.apiKey}|${s.useProxy}`;
 
-  async function fetchModels() {
-    setStatus("…");
-    try {
-      const baseUrl = cfg.baseUrl || def.baseUrl;
-      const endpoint = s.useProxy ? `${location.origin}/api/proxy/${def.id}` : baseUrl;
-      const proxyHeaders: Record<string, string> = s.useProxy && cfg.baseUrl ? { "x-lexi-base-url": cfg.baseUrl } : {};
-      const ids = await listModels({ def, apiKey: cfg.apiKey, baseUrl, endpoint, proxyHeaders, maxTokens: cfg.maxTokens });
-      setModels(ids);
-      setStatus(tr(`✓ متصل — ${ids.length} نموذجًا`, `✓ Connected — ${ids.length} models`));
-    } catch (e) {
-      setStatus(`✗ ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
+  const fetchModels = useCallback(
+    async (force = false) => {
+      const cached = modelCache.get(cacheKey);
+      if (cached && !force) {
+        setModels(cached);
+        setStatus({ kind: "ok", text: tr(`✓ ${cached.length} نموذجًا متاحًا لهذا المفتاح`, `✓ ${cached.length} models available for this key`) });
+        return;
+      }
+      setStatus({ kind: "loading", text: tr("جارٍ جلب النماذج المتاحة لهذا المفتاح…", "Fetching the models this key can use…") });
+      try {
+        const ids = await listModels({ def, apiKey: cfg.apiKey, ...resolveEndpoint(s, def, cfg) });
+        modelCache.set(cacheKey, ids);
+        setModels(ids);
+        setStatus({ kind: "ok", text: tr(`✓ ${ids.length} نموذجًا متاحًا لهذا المفتاح`, `✓ ${ids.length} models available for this key`) });
+        // Pick a model automatically so the provider is ready as soon as the key works.
+        const current = getSettings().providers[def.id]?.model;
+        if (ids.length && (!current || !ids.includes(current))) save({ model: ids.includes(def.defaultModel) ? def.defaultModel : ids[0] });
+      } catch (e) {
+        setModels([]);
+        setStatus({ kind: "error", text: `✗ ${errorMessage(e, lang)}` });
+      }
+    },
+    // Keyed on the inputs that change the result; def/cfg/s are derived from them.
+    [cacheKey],
+  );
+
+  // Fetch as soon as a key is typed or pasted (debounced), and when switching providers.
+  useEffect(() => {
+    setModels([]);
+    setFilter("");
+    setStatus({ kind: "idle", text: "" });
+    if (!canFetch) return;
+    const id = setTimeout(() => fetchModels(), 700);
+    return () => clearTimeout(id);
+  }, [cacheKey, canFetch, fetchModels]);
+
+  const shown = filter ? models.filter((m) => m.toLowerCase().includes(filter.toLowerCase())) : models;
+  const currentModel = cfg.model || def.defaultModel;
 
   return (
     <div className="space-y-3 rounded-xl border border-border p-4">
@@ -273,20 +326,21 @@ function ProviderEditor({ lang }: { lang: Lang }) {
               </a>
             )}
             <span className="block text-xs font-normal text-muted-foreground">
-              {tr("يُحفظ في هذا المتصفح فقط، ويُرسل إلى المزوّد وحده.", "Stored only in this browser; sent only to the provider.")}
+              {tr("يُحفظ في هذا الجهاز فقط، ويُرسل إلى المزوّد وحده.", "Stored only on this device; sent only to the provider.")}
             </span>
           </label>
-          <div className="flex gap-1">
+          <div className="flex min-w-0 gap-1">
             <input
               id="key"
               dir="ltr"
               type={showKey ? "text" : "password"}
               autoComplete="off"
+              spellCheck={false}
               className={input}
               value={cfg.apiKey}
               onChange={(e) => save({ apiKey: e.target.value.trim() })}
             />
-            <Button variant="outline" size="icon" className="size-9 shrink-0" onClick={() => setShowKey((v) => !v)} aria-label="show">
+            <Button variant="outline" size="icon" className="size-9 shrink-0" onClick={() => setShowKey((v) => !v)} aria-label={tr("إظهار المفتاح", "Show key")}>
               {showKey ? <EyeOff /> : <Eye />}
             </Button>
           </div>
@@ -295,26 +349,46 @@ function ProviderEditor({ lang }: { lang: Lang }) {
       <div className="grid gap-1.5 sm:grid-cols-2 sm:gap-4">
         <label htmlFor="model" className="text-sm font-medium">
           {tr("النموذج", "Model")}
+          <span className="block text-xs font-normal text-muted-foreground">
+            {tr("تُجلب تلقائيًا كل النماذج التي يتيحها مفتاحك.", "Every model your key can use is fetched automatically.")}
+          </span>
         </label>
-        <div className="flex gap-1">
-          <input
-            id="model"
-            dir="ltr"
-            list="model-list"
-            className={input}
-            placeholder={def.defaultModel || tr("اضغط «اعرض النماذج»", "Press “List models”")}
-            value={cfg.model}
-            onChange={(e) => save({ model: e.target.value.trim() })}
-          />
-          <datalist id="model-list">
-            {models.map((m) => (
-              <option key={m} value={m} />
-            ))}
-          </datalist>
-          <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={fetchModels}>
-            <ListRestart />
-            {tr("اعرض النماذج", "List models")}
-          </Button>
+        <div className="min-w-0 space-y-1.5">
+          {models.length > 0 && !manual ? (
+            <>
+              {models.length > 15 && (
+                <input dir="ltr" className={input} placeholder={tr("ابحث في النماذج…", "Search models…")} value={filter} onChange={(e) => setFilter(e.target.value)} />
+              )}
+              <select id="model" dir="ltr" className={input} value={shown.includes(currentModel) ? currentModel : ""} onChange={(e) => save({ model: e.target.value })}>
+                {!shown.includes(currentModel) && <option value="">{tr("اختر نموذجًا…", "Choose a model…")}</option>}
+                {shown.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </>
+          ) : (
+            <input
+              id="model"
+              dir="ltr"
+              className={input}
+              placeholder={def.defaultModel || tr("اسم النموذج", "Model id")}
+              value={cfg.model}
+              onChange={(e) => save({ model: e.target.value.trim() })}
+            />
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            <Button variant="outline" size="sm" onClick={() => fetchModels(true)} disabled={!canFetch || status.kind === "loading"}>
+              <ListRestart />
+              {tr("تحديث القائمة", "Refresh list")}
+            </Button>
+            {models.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setManual((v) => !v)}>
+                {manual ? tr("اختر من القائمة", "Pick from list") : tr("إدخال يدوي", "Type manually")}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
       <div className="grid gap-1.5 sm:grid-cols-2 sm:gap-4">
@@ -332,11 +406,16 @@ function ProviderEditor({ lang }: { lang: Lang }) {
         </label>
         <input id="maxt" type="number" dir="ltr" min={256} max={131072} step={256} className={input} value={cfg.maxTokens} onChange={(e) => save({ maxTokens: Number(e.target.value) })} />
       </div>
-      {status && (
-        <p className="text-xs" dir="auto">
-          {status}
+      {status.text && (
+        <p
+          role="status"
+          className={cn("break-words text-xs", status.kind === "error" ? "text-danger" : status.kind === "ok" ? "text-success" : "text-muted-foreground")}
+          dir="auto"
+        >
+          {status.text}
         </p>
       )}
+      {nativeFetch && <p className="text-xs text-muted-foreground">{tr("يعمل الاتصال عبر التطبيق مباشرة، دون قيود المتصفح.", "Requests go through the app natively, without browser limits.")}</p>}
     </div>
   );
 }

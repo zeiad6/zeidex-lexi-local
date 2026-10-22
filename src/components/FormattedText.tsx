@@ -67,5 +67,6 @@ export function FormattedText({ text, onCite }: { text: string; onCite?: (n: num
       }
     });
   flush();
-  return <div className="leading-relaxed">{blocks}</div>;
+  // Model output can contain URLs or glued words; wrap them instead of widening the page.
+  return <div className="leading-relaxed [overflow-wrap:anywhere]">{blocks}</div>;
 }

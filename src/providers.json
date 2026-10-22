@@ -1,22 +1,165 @@
 {
-  "_comment": "Shared by the web app (provider picker) and server/server.mjs (proxy allowlist). kind=openai means an OpenAI-compatible /chat/completions API.",
+  "_comment": "Shared by the web app (provider picker) and server/server.mjs (proxy allowlist). kind=openai: OpenAI-compatible /chat/completions; kind=gemini: Google's native API (key in the query string, which Google allows from browsers); kind=anthropic: Messages API via the SDK. fallbackModels: shown when a provider has no model-list endpoint.",
   "providers": [
-    { "id": "anthropic", "name": "Anthropic (Claude)", "kind": "anthropic", "baseUrl": "https://api.anthropic.com", "needsKey": true, "defaultModel": "claude-opus-5-5", "keyUrl": "https://console.anthropic.com/settings/keys" },
-    { "id": "openai", "name": "OpenAI", "kind": "openai", "baseUrl": "https://api.openai.com/v1", "needsKey": true, "defaultModel": "", "keyUrl": "https://platform.openai.com/api-keys" },
-    { "id": "gemini", "name": "Google Gemini", "kind": "openai", "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai", "needsKey": true, "defaultModel": "", "keyUrl": "https://aistudio.google.com/apikey" },
-    { "id": "openrouter", "name": "OpenRouter", "kind": "openai", "baseUrl": "https://openrouter.ai/api/v1", "needsKey": true, "defaultModel": "", "keyUrl": "https://openrouter.ai/keys" },
-    { "id": "groq", "name": "Groq", "kind": "openai", "baseUrl": "https://api.groq.com/openai/v1", "needsKey": true, "defaultModel": "", "keyUrl": "https://console.groq.com/keys" },
-    { "id": "mistral", "name": "Mistral AI", "kind": "openai", "baseUrl": "https://api.mistral.ai/v1", "needsKey": true, "defaultModel": "", "keyUrl": "https://console.mistral.ai/api-keys" },
-    { "id": "deepseek", "name": "DeepSeek", "kind": "openai", "baseUrl": "https://api.deepseek.com/v1", "needsKey": true, "defaultModel": "", "keyUrl": "https://platform.deepseek.com/api_keys" },
-    { "id": "xai", "name": "xAI (Grok)", "kind": "openai", "baseUrl": "https://api.x.ai/v1", "needsKey": true, "defaultModel": "", "keyUrl": "https://console.x.ai" },
-    { "id": "together", "name": "Together AI", "kind": "openai", "baseUrl": "https://api.together.xyz/v1", "needsKey": true, "defaultModel": "", "keyUrl": "https://api.together.ai/settings/api-keys" },
-    { "id": "fireworks", "name": "Fireworks AI", "kind": "openai", "baseUrl": "https://api.fireworks.ai/inference/v1", "needsKey": true, "defaultModel": "", "keyUrl": "https://fireworks.ai/account/api-keys" },
-    { "id": "cerebras", "name": "Cerebras", "kind": "openai", "baseUrl": "https://api.cerebras.ai/v1", "needsKey": true, "defaultModel": "", "keyUrl": "https://cloud.cerebras.ai" },
-    { "id": "perplexity", "name": "Perplexity", "kind": "openai", "baseUrl": "https://api.perplexity.ai", "needsKey": true, "defaultModel": "", "keyUrl": "https://www.perplexity.ai/settings/api" },
-    { "id": "cohere", "name": "Cohere", "kind": "openai", "baseUrl": "https://api.cohere.ai/compatibility/v1", "needsKey": true, "defaultModel": "", "keyUrl": "https://dashboard.cohere.com/api-keys" },
-    { "id": "huggingface", "name": "Hugging Face Inference", "kind": "openai", "baseUrl": "https://router.huggingface.co/v1", "needsKey": true, "defaultModel": "", "keyUrl": "https://huggingface.co/settings/tokens" },
-    { "id": "ollama", "name": "Ollama (local server)", "kind": "openai", "baseUrl": "http://localhost:11434/v1", "needsKey": false, "defaultModel": "", "keyUrl": "https://ollama.com" },
-    { "id": "lmstudio", "name": "LM Studio (local server)", "kind": "openai", "baseUrl": "http://localhost:1234/v1", "needsKey": false, "defaultModel": "", "keyUrl": "https://lmstudio.ai" },
-    { "id": "custom", "name": "Custom (OpenAI-compatible)", "kind": "openai", "baseUrl": "", "needsKey": false, "defaultModel": "", "keyUrl": "" }
+    {
+      "id": "anthropic",
+      "name": "Anthropic (Claude)",
+      "kind": "anthropic",
+      "baseUrl": "https://api.anthropic.com",
+      "needsKey": true,
+      "defaultModel": "claude-opus-5-5",
+      "keyUrl": "https://console.anthropic.com/settings/keys"
+    },
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "kind": "openai",
+      "baseUrl": "https://api.openai.com/v1",
+      "needsKey": true,
+      "defaultModel": "",
+      "keyUrl": "https://platform.openai.com/api-keys"
+    },
+    {
+      "id": "gemini",
+      "name": "Google Gemini",
+      "kind": "gemini",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "needsKey": true,
+      "defaultModel": "",
+      "keyUrl": "https://aistudio.google.com/apikey"
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "kind": "openai",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "needsKey": true,
+      "defaultModel": "",
+      "keyUrl": "https://openrouter.ai/keys"
+    },
+    {
+      "id": "groq",
+      "name": "Groq",
+      "kind": "openai",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "needsKey": true,
+      "defaultModel": "",
+      "keyUrl": "https://console.groq.com/keys"
+    },
+    {
+      "id": "mistral",
+      "name": "Mistral AI",
+      "kind": "openai",
+      "baseUrl": "https://api.mistral.ai/v1",
+      "needsKey": true,
+      "defaultModel": "",
+      "keyUrl": "https://console.mistral.ai/api-keys"
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "kind": "openai",
+      "baseUrl": "https://api.deepseek.com/v1",
+      "needsKey": true,
+      "defaultModel": "",
+      "keyUrl": "https://platform.deepseek.com/api_keys"
+    },
+    {
+      "id": "xai",
+      "name": "xAI (Grok)",
+      "kind": "openai",
+      "baseUrl": "https://api.x.ai/v1",
+      "needsKey": true,
+      "defaultModel": "",
+      "keyUrl": "https://console.x.ai"
+    },
+    {
+      "id": "together",
+      "name": "Together AI",
+      "kind": "openai",
+      "baseUrl": "https://api.together.xyz/v1",
+      "needsKey": true,
+      "defaultModel": "",
+      "keyUrl": "https://api.together.ai/settings/api-keys"
+    },
+    {
+      "id": "fireworks",
+      "name": "Fireworks AI",
+      "kind": "openai",
+      "baseUrl": "https://api.fireworks.ai/inference/v1",
+      "needsKey": true,
+      "defaultModel": "",
+      "keyUrl": "https://fireworks.ai/account/api-keys"
+    },
+    {
+      "id": "cerebras",
+      "name": "Cerebras",
+      "kind": "openai",
+      "baseUrl": "https://api.cerebras.ai/v1",
+      "needsKey": true,
+      "defaultModel": "",
+      "keyUrl": "https://cloud.cerebras.ai"
+    },
+    {
+      "id": "perplexity",
+      "name": "Perplexity",
+      "kind": "openai",
+      "baseUrl": "https://api.perplexity.ai",
+      "needsKey": true,
+      "defaultModel": "",
+      "keyUrl": "https://www.perplexity.ai/settings/api",
+      "fallbackModels": [
+        "sonar",
+        "sonar-pro",
+        "sonar-reasoning",
+        "sonar-reasoning-pro",
+        "sonar-deep-research"
+      ]
+    },
+    {
+      "id": "cohere",
+      "name": "Cohere",
+      "kind": "openai",
+      "baseUrl": "https://api.cohere.ai/compatibility/v1",
+      "needsKey": true,
+      "defaultModel": "",
+      "keyUrl": "https://dashboard.cohere.com/api-keys"
+    },
+    {
+      "id": "huggingface",
+      "name": "Hugging Face Inference",
+      "kind": "openai",
+      "baseUrl": "https://router.huggingface.co/v1",
+      "needsKey": true,
+      "defaultModel": "",
+      "keyUrl": "https://huggingface.co/settings/tokens"
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama (local server)",
+      "kind": "openai",
+      "baseUrl": "http://localhost:11434/v1",
+      "needsKey": false,
+      "defaultModel": "",
+      "keyUrl": "https://ollama.com"
+    },
+    {
+      "id": "lmstudio",
+      "name": "LM Studio (local server)",
+      "kind": "openai",
+      "baseUrl": "http://localhost:1234/v1",
+      "needsKey": false,
+      "defaultModel": "",
+      "keyUrl": "https://lmstudio.ai"
+    },
+    {
+      "id": "custom",
+      "name": "Custom (OpenAI-compatible)",
+      "kind": "openai",
+      "baseUrl": "",
+      "needsKey": false,
+      "defaultModel": "",
+      "keyUrl": ""
+    }
   ]
 }
