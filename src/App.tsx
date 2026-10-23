@@ -152,7 +152,7 @@ export default function App() {
   return (
     <I18nContext.Provider value={{ lang, t }}>
       <div className="flex min-h-dvh flex-col">
-        <header className="sticky top-0 z-10 border-b border-border bg-card/80 backdrop-blur">
+        <header className="sticky top-0 z-10 border-b border-border bg-card lg:bg-card/80 lg:backdrop-blur">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-3">
             <img src="./icon.svg" alt="" className="size-9" />
             <div className="min-w-0 flex-1">

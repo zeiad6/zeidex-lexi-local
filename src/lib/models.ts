@@ -1,3 +1,5 @@
+import type { GpuPrecision } from "./settings";
+
 export interface ModelOption {
   id: string;
   label: string;
@@ -57,12 +59,24 @@ export const CPU_MODEL: ModelOption = {
 /** Swaps to the 32-bit-float shader build when the GPU lacks `shader-f16`. */
 export const forGpu = (id: string, f16: boolean) => (f16 ? id : id.replace("q4f16_1", "q4f32_1"));
 
+const MOBILE = /Android|iPhone|iPad|Mobile/i;
+
+/**
+ * Whether to run the 16-bit shader build. Phone GPUs (Adreno, Mali) lose precision in 16-bit math and
+ * Qwen3.5's DeltaNet layers then emit token soup ("une-m-m-m…"), so "auto" uses 32-bit there; it costs
+ * about 15% more GPU memory and computes correctly.
+ */
+export function wantsF16(gpuF16: boolean, pref: GpuPrecision, ua = navigator.userAgent): boolean {
+  if (!gpuF16 || pref === "f32") return false;
+  return pref === "f16" || !MOBILE.test(ua);
+}
+
 const GiB = 1024 ** 3;
 
 /** Phones and GPUs with small buffer limits get the 0.8B model; everything else the balanced 2B. */
 export function recommendModel(gpu: { webgpu: boolean; maxBufferSize?: number }): ModelOption {
   if (!gpu.webgpu) return CPU_MODEL;
-  const mobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+  const mobile = MOBILE.test(navigator.userAgent);
   const small = (gpu.maxBufferSize ?? 0) < GiB;
   return mobile || small ? WEBGPU_MODELS.find((m) => m.id.startsWith("Qwen3.5-0.8B"))! : WEBGPU_MODELS[0];
 }

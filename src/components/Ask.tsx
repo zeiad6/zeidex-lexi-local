@@ -12,6 +12,7 @@ import { answerDoc, fileStem } from "@/lib/export";
 import { Rating } from "@/components/HistoryDialog";
 import type { Bm25 } from "@/lib/nlp";
 import { Aborted, ask, type Answer } from "@/lib/pipeline";
+import { perFrame } from "@/lib/utils";
 
 interface Turn {
   id: number;
@@ -51,15 +52,17 @@ export function Ask({
     if (!q || !index || streaming !== null) return;
     setError("");
     setStreaming("");
+    const stream = perFrame(setStreaming);
     try {
       const rec = recorder();
-      const answer = await ask({ question: q, passages, index, budgetChars, lang: outLang, onToken: setStreaming, record: rec.record });
+      const answer = await ask({ question: q, passages, index, budgetChars, lang: outLang, onToken: stream, record: rec.record });
       const entryId = answer ? await saveRun("ask", { docName, title: q, lang: outLang, quality: "-", output: answer.text, data: answer.sources }, rec) : null;
       setTurns((ts) => [{ id: nextId.current++, entryId, question: q, answer, lang: outLang }, ...ts]);
       setQuestion("");
     } catch (e) {
       if (!(e instanceof Aborted)) setError(errorText(e, t));
     } finally {
+      stream.cancel();
       setStreaming(null);
     }
   }

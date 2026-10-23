@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { arabicRatio, Bm25, compress, dedupe, findLoop, keywords, normalize, tokenize } from "./nlp";
+import { arabicRatio, Bm25, compress, dedupe, findLoop, isGibberish, keywords, normalize, tokenize } from "./nlp";
 import { cleanPages, joinLines } from "./clean";
 
 test("normalize folds Arabic variants and diacritics", () => {
@@ -109,4 +109,20 @@ test("cleanPages options can disable header removal and reference cutting", () =
   expect(r.text).toContain("Running title");
   expect(r.text).toContain("Smith");
   expect(r.removedLines).toBe(0);
+});
+
+test("isGibberish flags GPU token soup, not prose, tables or short answers", () => {
+  const soup = "une-m-m-m-m-m-m-m-m-m-m-m-m-m-m-m-m-m-m-m-m-m-une ".repeat(12);
+  expect(isGibberish(soup)).toBe(true);
+  const en =
+    "The study followed 240 patients for two years. Those who received the new treatment reported fewer symptoms, " +
+    "shorter hospital stays and a lower rate of relapse than the control group, although the effect faded after month eighteen. ";
+  expect(isGibberish(en.repeat(3))).toBe(false);
+  const ar =
+    "تابعت الدراسة 240 مريضًا مدة عامين. أبلغ من تلقّوا العلاج الجديد عن أعراض أقل وإقامة أقصر في المستشفى " +
+    "ومعدل انتكاس أدنى من المجموعة الضابطة، مع أن الأثر تراجع بعد الشهر الثامن عشر. ";
+  expect(isGibberish(ar.repeat(3))).toBe(false);
+  expect(isGibberish(`| Term | Meaning |\n|---|---|\n| ATP | cell energy currency |\n${en}`)).toBe(false);
+  expect(isGibberish("B")).toBe(false);
+  expect(isGibberish("-m-m-m-m")).toBe(false);
 });

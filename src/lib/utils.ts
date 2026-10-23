@@ -20,3 +20,27 @@ export function formatBytes(n: number): string {
   const i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
   return `${(n / 1024 ** i).toFixed(i ? 1 : 0)} ${units[i]}`;
 }
+
+/**
+ * Wraps a setter so a burst of calls (a model streaming tokens) renders at most once per frame with
+ * the latest value; re-parsing a long answer on every token stalls phones.
+ */
+export function perFrame<T>(set: (v: T) => void): ((v: T) => void) & { cancel: () => void } {
+  let pending: { v: T } | null = null;
+  let frame = 0;
+  const flush = () => {
+    const last = pending;
+    pending = null;
+    if (last) set(last.v);
+  };
+  const push = (v: T) => {
+    if (!pending) frame = requestAnimationFrame(flush);
+    pending = { v };
+  };
+  // Call before setting the final value, so a late frame cannot overwrite it with a partial one.
+  push.cancel = () => {
+    cancelAnimationFrame(frame);
+    pending = null;
+  };
+  return push;
+}

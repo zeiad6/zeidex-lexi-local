@@ -2,6 +2,26 @@
 
 Each release on GitHub uses the matching section below as its notes (see `scripts/release-notes.mjs`).
 
+## [1.1.3] - 2026-10-23
+
+### Improved
+- Faster start: the PDF reader and the Office/EPUB converters load when you first import a file, which halves the code the app loads at launch (853 KB to 430 KB).
+- Smoother streaming: summaries and answers redraw at most once per screen frame while the model writes, instead of re-laying out the whole text on every token.
+- Smoother scrolling on phones: the blurred, see-through header and dialog backdrops are now solid on small screens, where the blur had to be redrawn on every scroll frame.
+
+### تحسينات
+- تشغيل أسرع: يُحمَّل قارئ PDF ومحوّلات Office وEPUB عند أول استيراد لملف، فينخفض الكود المحمَّل عند الإقلاع إلى النصف (من 853 KB إلى 430 KB).
+- بثّ أسلس: تُعاد رسم الملخصات والإجابات مرة واحدة على الأكثر في كل إطار أثناء كتابة النموذج، بدل إعادة تنسيق النص كاملًا مع كل رمز.
+- تمرير أسلس على الهواتف: صار الشريط العلوي وخلفية النوافذ الحوارية بلون مُصمت على الشاشات الصغيرة، بعد أن كان التمويه يُعاد رسمه مع كل إطار تمرير.
+
+### Fixed
+- Local models on phones no longer answer with garbled text such as "une-m-m-m-m…". Phone GPUs lose precision in 16-bit shaders, and the DeltaNet layers of Qwen3.5 then break down. Phones now use the 32-bit build of each model (about 15% more GPU memory, one new download). A new setting, Settings → Local engine → GPU precision, lets you choose 16-bit or 32-bit on any device.
+- If a local model still produces garbled text, the app stops with an explanation and the fix, instead of returning the garbage as a summary or quiz.
+
+### إصلاحات
+- لم تعد النماذج المحلية على الهواتف تُخرج نصًا مشوّهًا مثل "une-m-m-m-m…". تفقد معالجات رسوميات الهواتف الدقة في حسابات 16-بت فتنهار طبقات DeltaNet في Qwen3.5. صارت الهواتف تستخدم نسخة 32-بت من كل نموذج (ذاكرة رسوميات أكثر بنحو 15% وتنزيل جديد مرة واحدة). وإعداد جديد في الإعدادات ← المحرّك المحلي ← دقة حساب معالج الرسوميات يتيح اختيار 16-بت أو 32-بت على أي جهاز.
+- إن أخرج النموذج المحلي نصًا مشوّهًا رغم ذلك، يتوقف التطبيق برسالة تشرح السبب والحل، بدل عرض النص المشوّه كملخص أو اختبار.
+
 ## [1.1.2] - 2026-10-23
 
 ### Security

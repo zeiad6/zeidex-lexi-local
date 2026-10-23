@@ -2,7 +2,7 @@
 // applies the user's runtime settings, guards against loops and records training pairs.
 import { cloudGenerate, resolveProvider, type Effort } from "./cloud";
 import { llm } from "./llm-client";
-import { findLoop } from "./nlp";
+import { findLoop, isGibberish } from "./nlp";
 import type { ChatMessage } from "./prompts";
 import { getSettings, type ExecMode } from "./settings";
 
@@ -116,6 +116,9 @@ export async function generate(task: Task, rawMessages: ChatMessage[], opts: Eng
       guard: s.loopGuard,
       onToken: opts.onToken,
     });
+    // Token soup means the GPU computed the model wrongly (16-bit shaders on phone GPUs); passing it on
+    // would turn a summary or quiz into garbage instead of telling the user how to fix it.
+    if (!r.aborted && isGibberish(r.text)) throw new Error("local-garbage");
     result = { ...r, via, model: llm.state.model ?? "local" };
   } else {
     const p = provider!;

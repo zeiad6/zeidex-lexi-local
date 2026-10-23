@@ -15,7 +15,7 @@ import { copyText, job } from "@/lib/native";
 import { Rating } from "@/components/HistoryDialog";
 import { Aborted, estimateCalls, summarize, type Quality, type RunStats, type SummaryProgress } from "@/lib/pipeline";
 import type { SummaryFormat } from "@/lib/prompts";
-import { formatDuration } from "@/lib/utils";
+import { formatDuration, perFrame } from "@/lib/utils";
 
 export function Summarizer({
   chunks,
@@ -58,6 +58,7 @@ export function Summarizer({
     setStats(null);
     const rec = recorder();
     job.start(t.summaryTitle);
+    const stream = perFrame(setOutput);
     try {
       const text = await summarize({
         chunks,
@@ -72,10 +73,11 @@ export function Summarizer({
           setProgress(p);
           job.progress(t.summaryTitle, p.step, p.total);
         },
-        onToken: setOutput,
+        onToken: stream,
         record: rec.record,
         onStats: setStats,
       });
+      stream.cancel();
       setOutput(text);
       job.end(t.summaryTitle, titleOf(text), true);
       setEntryId(await saveRun("summary", { docName, title: titleOf(text), lang: outLang, quality, output: text }, rec));

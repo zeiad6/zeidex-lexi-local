@@ -8,7 +8,7 @@ import { useI18n, type Dict } from "@/i18n";
 import type { GpuReport } from "@/lib/gpu";
 import type { LoadErrorKind } from "@/lib/install";
 import { llm, useEngine } from "@/lib/llm-client";
-import { CPU_MODEL, forGpu, WEBGPU_MODELS, type ModelOption } from "@/lib/models";
+import { CPU_MODEL, forGpu, wantsF16, WEBGPU_MODELS, type ModelOption } from "@/lib/models";
 import { cn, formatBytes, formatDuration } from "@/lib/utils";
 import { updateSettings, useSettings } from "@/lib/settings";
 import { checkForModelUpdates, markUpdated } from "@/lib/updates";
@@ -119,7 +119,10 @@ export function EngineDashboard({
       : [];
     return [...custom, ...WEBGPU_MODELS];
   }, [webgpu, s.cpuModel, s.customWebllmModel]);
-  const resolve = useCallback((m: ModelOption) => (webgpu ? forGpu(m.id, gpu?.f16 ?? true) : m.id), [webgpu, gpu]);
+  const resolve = useCallback(
+    (m: ModelOption) => (webgpu ? forGpu(m.id, wantsF16(gpu?.f16 ?? true, s.gpuPrecision)) : m.id),
+    [webgpu, gpu, s.gpuPrecision],
+  );
   const busy = engine.status === "loading";
 
   useEffect(() => {

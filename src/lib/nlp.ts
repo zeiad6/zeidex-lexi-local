@@ -170,6 +170,26 @@ export function dedupe<T>(items: T[], key: (t: T) => string, threshold = 0.6): T
 }
 
 /**
+ * True when the text is mostly token soup ("une-m-m-m-m…"): a model computed wrongly on the GPU emits a
+ * few fragments over and over. Real prose in any language uses far more distinct character pairs per
+ * `span` characters, and a short repetitive part (a table rule) does not make the majority.
+ */
+export function isGibberish(text: string, span = 200, minPairs = 30): boolean {
+  const s = text.replace(/\s+/g, " ").trim();
+  let windows = 0;
+  let bad = 0;
+  for (let i = 0; i < s.length; i += span) {
+    const w = s.slice(i, i + span);
+    if (w.length < 60) break; // too short to judge; a short answer is never flagged
+    const pairs = new Set<string>();
+    for (let j = 0; j < w.length - 1; j++) pairs.add(w.slice(j, j + 2));
+    windows++;
+    if (pairs.size < Math.min(minPairs, w.length / 4)) bad++;
+  }
+  return bad * 2 > windows;
+}
+
+/**
  * Detects degenerate looping (small models repeating the same phrase). Returns the index where the
  * text should be cut so one copy remains, or -1. Only the recent tail is inspected.
  */

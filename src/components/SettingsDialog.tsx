@@ -75,6 +75,20 @@ const SECTIONS: { id: SectionId; label: L; fields: Field[] }[] = [
         ],
       },
       {
+        key: "gpuPrecision",
+        type: "select",
+        label: { ar: "دقة حساب معالج الرسوميات", en: "GPU precision" },
+        help: {
+          ar: "التلقائي يستخدم 16-بت على الحاسوب و32-بت على الهاتف، لأن معالجات الهواتف قد تُخرج نصًا مشوّهًا بدقة 16-بت. يحتاج 32-بت ذاكرة أكثر بنحو 15% وتنزيلًا جديدًا للنموذج.",
+          en: "Automatic uses 16-bit on computers and 32-bit on phones, whose GPUs can turn 16-bit output into garbled text. 32-bit needs about 15% more GPU memory and a new model download.",
+        },
+        options: [
+          { value: "auto", label: { ar: "تلقائي", en: "Automatic" } },
+          { value: "f16", label: { ar: "16-بت (أسرع)", en: "16-bit (faster)" } },
+          { value: "f32", label: { ar: "32-بت (أدق)", en: "32-bit (accurate)" } },
+        ],
+      },
+      {
         key: "customWebllmModel",
         type: "text",
         label: { ar: "نموذج WebLLM مخصّص", en: "Custom WebLLM model" },

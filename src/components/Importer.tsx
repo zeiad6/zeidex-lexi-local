@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n";
-import { extractFile, type ExtractedDoc } from "@/lib/pdf";
+import type { ExtractedDoc } from "@/lib/pdf";
 import { CONVERTIBLE } from "@/lib/convert";
 import { onOpenFile } from "@/lib/native";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,8 @@ export function Importer({
     setError("");
     setProgress({ done: 0, total: 1 });
     try {
+      // pdf.js and the Office/EPUB converters load on the first import, not with the app.
+      const { extractFile } = await import("@/lib/pdf");
       const d = await extractFile(file, (done, total) => setProgress({ done, total }));
       if (d.text.trim().length < 50) {
         setError(t.noText);

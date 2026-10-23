@@ -5,6 +5,7 @@ import { useSyncExternalStore } from "react";
 export type ExecMode = "local" | "cloud" | "hybrid" | "smart";
 export type BackendPref = "auto" | "webgpu" | "wasm";
 export type CpuDtype = "q4" | "q8" | "fp16" | "fp32";
+export type GpuPrecision = "auto" | "f16" | "f32";
 
 export interface ProviderConfig {
   apiKey: string;
@@ -23,6 +24,8 @@ export interface Settings {
   useProxy: boolean;
   // Local engine
   backend: BackendPref;
+  /** Shader precision of WebGPU models; "auto" picks 32-bit on phones (see `wantsF16`). */
+  gpuPrecision: GpuPrecision;
   /** Any WebLLM prebuilt model id; overrides the picker when set. */
   customWebllmModel: string;
   cpuModel: string;
@@ -64,6 +67,7 @@ export const DEFAULTS: Settings = {
   providers: {},
   useProxy: false,
   backend: "auto",
+  gpuPrecision: "auto",
   customWebllmModel: "",
   cpuModel: "onnx-community/Qwen2.5-0.5B-Instruct",
   cpuDtype: "q4",
@@ -132,6 +136,7 @@ export function sanitize(input: unknown): Settings {
   for (const [k, allowed] of [
     ["mode", ["local", "cloud", "hybrid", "smart"]],
     ["backend", ["auto", "webgpu", "wasm"]],
+    ["gpuPrecision", ["auto", "f16", "f32"]],
     ["cpuDtype", ["q4", "q8", "fp16", "fp32"]],
   ] as const) {
     if (!(allowed as readonly unknown[]).includes(out[k])) out[k] = DEFAULTS[k];
