@@ -37,3 +37,22 @@ test("artifacts are classified and hashed", () => {
   assert.equal(a.windows.url, "https://zeidexsoft.com/downloads/lexi-local/Zeidex-Lexi-Local-1.0.0-win-x64.msi");
   assert.equal(a.android.sha256.length, 64);
 });
+
+test("release notes come from the matching CHANGELOG section", async () => {
+  const { changelogSection, releaseNotes } = await import("./release-notes.mjs");
+  const log = "# Changelog\n\n## [1.2.0] - x\n### Added\n- new\n\n## [1.1.0] - y\n- old\n";
+  assert.equal(changelogSection(log, "v1.2.0"), "### Added\n- new");
+  assert.equal(changelogSection(log, "1.1.0"), "- old");
+  assert.equal(changelogSection(log, "9.9.9"), null);
+  const notes = releaseNotes(log, "v1.2.0");
+  assert.match(notes, /Zeidex-Lexi-Local-1\.2\.0-android\.apk/);
+  assert.match(notes, /keys\/update-public\.pem/);
+  assert.throws(() => releaseNotes(log, "2.0.0"), /no section/);
+});
+
+test("every released version has a CHANGELOG entry", async () => {
+  const { changelogSection } = await import("./release-notes.mjs");
+  const { readFileSync } = await import("node:fs");
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.ok(changelogSection(readFileSync(new URL("../CHANGELOG.md", import.meta.url), "utf8"), pkg.version), `add ## [${pkg.version}] to CHANGELOG.md`);
+});

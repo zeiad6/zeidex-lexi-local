@@ -222,7 +222,11 @@ jobs:
             release/SHA256SUMS
             release/SHA256SUMS.sig
       - if: startsWith(github.ref, 'refs/tags/')
+        run: node scripts/release-notes.mjs "${{ github.ref_name }}" > release-notes.md
+      - if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          name: Lexi Local ${{ github.ref_name }}
+          body_path: release-notes.md
           files: release/*
           fail_on_unmatched_files: true
