@@ -2,6 +2,16 @@
 
 Each release on GitHub uses the matching section below as its notes (see `scripts/release-notes.mjs`).
 
+## [Unreleased]
+
+### Fixed
+- Summarizing with a local model no longer freezes the app and the phone. WebLLM 0.2.86 sent a whole model step to the GPU as one command buffer, which kept the system compositor from drawing the screen. The app now submits GPU work every 8 dispatches, following the pending upstream fix apache/tvm#19418.
+- Local models no longer fail with "Failed to execute 'mapAsync' on 'GPUBuffer': Buffer was unmapped before mapping was resolved". When the GPU device is lost during a token readback, the app reloads the model and retries the request. Unloading or switching models while a request runs now stops that request first, so the device is no longer destroyed during a readback.
+
+### إصلاحات
+- لم يعد التلخيص بنموذج محلي يجمّد التطبيق والهاتف. كان WebLLM 0.2.86 يرسل خطوة النموذج كاملةً إلى معالج الرسوميات في دفعة واحدة، فيمنع مُركِّب الشاشة في النظام من الرسم. صار التطبيق يرسل العمل كل 8 عمليات، كما في الإصلاح المقترح apache/tvm#19418 الذي لم يُدمج بعد.
+- لم تعد النماذج المحلية تفشل بالخطأ "Failed to execute 'mapAsync' on 'GPUBuffer': Buffer was unmapped before mapping was resolved". عند فقدان معالج الرسوميات أثناء قراءة رمز يعيد التطبيق تحميل النموذج ويكرر الطلب. وتفريغ النموذج أو تبديله أثناء طلب جارٍ يوقف ذلك الطلب أولًا، فلا يُدمَّر معالج الرسوميات أثناء القراءة.
+
 ## [1.1.1] - 2026-10-23
 
 ### Fixed

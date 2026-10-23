@@ -153,8 +153,25 @@ async function generate(req: Extract<WorkerRequest, { type: "generate" }>) {
   post({ type: "done", id: req.id, text, aborted, tokens, ms: tokens ? performance.now() - firstAt : 0 });
 }
 
-self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
+const interrupt = () => {
+  webgpuEngine?.interruptGenerate();
+  cpuStopper?.interrupt();
+};
+
+// Requests run one at a time: an unload/load arriving mid-generation used to destroy the GPU device while
+// a token readback was pending ("mapAsync ... unmapped before mapping was resolved").
+let chain: Promise<void> = Promise.resolve();
+
+self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   const req = e.data;
+  // Abort must reach the running generation, so it skips the queue; unload/load stop it too.
+  if (req.type === "abort" || req.type === "unload" || req.type === "load") interrupt();
+  if (req.type === "abort") return;
+  chain = chain.then(() => handle(req));
+  return chain;
+};
+
+async function handle(req: Exclude<WorkerRequest, { type: "abort" }>) {
   try {
     switch (req.type) {
       case "load":
@@ -162,10 +179,6 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
         break;
       case "generate":
         await generateWithRecovery(req);
-        break;
-      case "abort":
-        webgpuEngine?.interruptGenerate();
-        cpuStopper?.interrupt();
         break;
       case "unload":
         await unload();
@@ -179,4 +192,4 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     const id = req.type === "generate" || req.type === "cache" ? req.id : undefined;
     post({ type: "error", id, message: errorMessage(err) });
   }
-};
+}

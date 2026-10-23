@@ -38,7 +38,9 @@ export type WorkerResponse =
 
 // WebLLM unloads the model by itself when the GPU device is lost (Android backgrounding the app, GPU
 // memory pressure, a driver reset) and only logs it; the next request then fails with one of these.
-export const ENGINE_GONE = /Model not loaded before trying|ModelNotLoadedError|device (is |was )?lost|lost the device|instance.*disposed/i;
+// A loss during a token readback surfaces first as a rejected mapAsync ("Buffer was unmapped/destroyed
+// before mapping was resolved").
+export const ENGINE_GONE = /Model not loaded before trying|ModelNotLoadedError|device (is |was )?lost|lost the device|instance.*disposed|before mapping was resolved/i;
 
 // WebLLM only reports progress as text: "Fetching param cache[3/38]: 120MB fetched. 7% completed, ...".
 const WEBLLM_PROGRESS = /^(Fetching param|Loading model from) cache\[\d+\/\d+\]: (\d+)MB/;
