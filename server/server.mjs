@@ -293,7 +293,10 @@ export async function startServer(opts = {}) {
     securityHeaders(res, coep);
     const { pathname } = new URL(req.url, "http://x");
     try {
-      if (pathname.startsWith("/api/") && !sameOrigin(req.headers, pathname === "/api/share")) return sendJson(res, 403, { error: "cross-origin request refused" });
+      // A loopback client must also use a loopback Host: a DNS-rebound page would otherwise drive the
+      // proxy into other localhost services (Ollama, Docker...) past their own Host/Origin checks.
+      const local = pathname === "/api/share" || isLoopback(req.socket.remoteAddress);
+      if (pathname.startsWith("/api/") && !sameOrigin(req.headers, local)) return sendJson(res, 403, { error: "cross-origin request refused" });
       if (pathname.startsWith("/api/proxy/")) {
         const [, , , providerId, ...rest] = pathname.split("/");
         const search = new URL(req.url, "http://x").search;

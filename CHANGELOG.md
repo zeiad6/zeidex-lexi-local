@@ -2,7 +2,13 @@
 
 Each release on GitHub uses the matching section below as its notes (see `scripts/release-notes.mjs`).
 
-## [Unreleased]
+## [1.1.2] - 2026-10-23
+
+### Security
+- The local server (`npm run serve`, the desktop app) no longer lets a web page reach other services on this computer through its cloud proxy. A page that pointed its own domain at 127.0.0.1 (DNS rebinding) could send requests to services such as Ollama on localhost and read the replies, bypassing their own Host/Origin checks. Requests from this computer must now use a local host name.
+
+### أمان
+- لم يعد الخادم المحلي (`npm run serve` وتطبيق سطح المكتب) يسمح لصفحة ويب بالوصول إلى خدمات أخرى على هذا الجهاز عبر وسيط السحابة. كانت صفحة تُوجّه نطاقها إلى 127.0.0.1 (DNS rebinding) قادرة على إرسال طلبات إلى خدمات مثل Ollama على localhost وقراءة ردودها متجاوزةً فحوص Host/Origin الخاصة بها. صار على الطلبات القادمة من هذا الجهاز استخدام اسم مضيف محلي.
 
 ### Fixed
 - Summarizing with a local model no longer freezes the app and the phone. WebLLM 0.2.86 sent a whole model step to the GPU as one command buffer, which kept the system compositor from drawing the screen. The app now submits GPU work every 8 dispatches, following the pending upstream fix apache/tvm#19418.

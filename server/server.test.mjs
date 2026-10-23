@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import http from "node:http";
 import path from "node:path";
 import { classifyInterfaces, firewallAdvice, isPrivateIPv4, proxyTarget, safeJoin, sameOrigin, startServer } from "./server.mjs";
 
@@ -59,6 +60,18 @@ test("server: static, SPA fallback, LAN toggle only from loopback", async () => 
     info = await (await fetch(s.url + "api/share", { method: "POST", body: JSON.stringify({ enable: true }) })).json();
     assert.equal(info.enabled, true);
     assert.equal((await fetch(s.url + "api/proxy/custom/x", { headers: { "x-lexi-base-url": "https://evil.example" } })).status, 403);
+    // A DNS-rebound page reaches the loopback server under its own name; it must not drive the proxy
+    // into other localhost services.
+    const rebound = await new Promise((resolve, reject) =>
+      http
+        .request(s.url + "api/proxy/ollama/api/tags", { headers: { host: "rebind.evil.example:18787", origin: "http://rebind.evil.example:18787" } }, (r) => {
+          r.resume();
+          resolve(r.statusCode);
+        })
+        .on("error", reject)
+        .end(),
+    );
+    assert.equal(rebound, 403);
   } finally {
     await s.close();
   }
