@@ -2,7 +2,7 @@
 // All inference runs here so the UI thread never blocks on WebGPU/WASM work.
 import type { MLCEngine } from "@mlc-ai/web-llm";
 import type { TextGenerationPipeline, InterruptableStoppingCriteria } from "@huggingface/transformers";
-import type { WorkerRequest, WorkerResponse } from "./protocol";
+import { ENGINE_GONE, type WorkerRequest, type WorkerResponse } from "./protocol";
 // Bundled ONNX Runtime files: Transformers.js would otherwise fetch them from a CDN, breaking offline use.
 import ortWasm from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.wasm?url";
 import ortMjs from "onnxruntime-web/ort-wasm-simd-threaded.asyncify.mjs?url";
@@ -13,15 +13,48 @@ let webgpuEngine: MLCEngine | null = null;
 let cpuPipeline: TextGenerationPipeline | null = null;
 let cpuStopper: InterruptableStoppingCriteria | null = null;
 let modelId = "";
+let lastLoad: Extract<WorkerRequest, { type: "load" }> | null = null;
 
 const post = (msg: WorkerResponse) => self.postMessage(msg);
+const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 async function unload() {
-  await webgpuEngine?.unload();
-  await cpuPipeline?.dispose();
+  // A lost device leaves an engine whose unload() itself can throw; it must not block a reload.
+  await webgpuEngine?.unload().catch(() => undefined);
+  await cpuPipeline?.dispose().catch(() => undefined);
   webgpuEngine = null;
   cpuPipeline = null;
   modelId = "";
+}
+
+async function load(req: Extract<WorkerRequest, { type: "load" }>) {
+  await unload();
+  if (req.backend === "webgpu") await loadWebGpu(req.model, req.contextTokens);
+  else await loadCpu(req.model, req.dtype);
+  modelId = req.model;
+  lastLoad = req;
+  post({ type: "ready", backend: req.backend, model: req.model });
+}
+
+/** Runs a request; if the engine died underneath it, reloads the same model from cache and retries once. */
+async function generateWithRecovery(req: Extract<WorkerRequest, { type: "generate" }>) {
+  try {
+    await generate(req);
+    return;
+  } catch (err) {
+    if (!lastLoad || !ENGINE_GONE.test(errorMessage(err))) throw err;
+    post({ type: "reloading", id: req.id, reason: errorMessage(err) });
+  }
+  try {
+    await load(lastLoad);
+    await generate(req);
+  } catch (err) {
+    // Reload or retry failed too: report an engine-level error so the UI stops showing "Ready"/"Loading".
+    await unload();
+    lastLoad = null;
+    post({ type: "error", message: errorMessage(err) });
+    throw err;
+  }
 }
 
 async function loadWebGpu(model: string, contextTokens: number) {
@@ -115,7 +148,7 @@ async function generate(req: Extract<WorkerRequest, { type: "generate" }>) {
     aborted = cpuStopper.interrupted;
     cpuStopper = null;
   } else {
-    throw new Error("No model loaded");
+    throw new Error("Model not loaded before trying to generate");
   }
   post({ type: "done", id: req.id, text, aborted, tokens, ms: tokens ? performance.now() - firstAt : 0 });
 }
@@ -125,14 +158,10 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   try {
     switch (req.type) {
       case "load":
-        await unload();
-        if (req.backend === "webgpu") await loadWebGpu(req.model, req.contextTokens);
-        else await loadCpu(req.model, req.dtype);
-        modelId = req.model;
-        post({ type: "ready", backend: req.backend, model: req.model });
+        await load(req);
         break;
       case "generate":
-        await generate(req);
+        await generateWithRecovery(req);
         break;
       case "abort":
         webgpuEngine?.interruptGenerate();
@@ -140,6 +169,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
         break;
       case "unload":
         await unload();
+        lastLoad = null;
         break;
       case "cache":
         post({ type: "cache", id: req.id, cached: await cacheOp(req) });
@@ -147,12 +177,6 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     }
   } catch (err) {
     const id = req.type === "generate" || req.type === "cache" ? req.id : undefined;
-    const message = err instanceof Error ? err.message : String(err);
-    post({ type: "error", id, message });
-    // A lost GPU device leaves a dead engine behind; report it as an engine error so the UI offers a reload.
-    if (req.type === "generate" && /device (is |was )?lost|lost the device/i.test(message)) {
-      await unload().catch(() => undefined);
-      post({ type: "error", message });
-    }
+    post({ type: "error", id, message: errorMessage(err) });
   }
 };

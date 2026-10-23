@@ -189,9 +189,12 @@ class LlmClient {
   }
 
   private onProgress(raw: Extract<WorkerResponse, { type: "progress" }>) {
-    this.armStall();
     // WebLLM reports bytes only inside its progress text; transformers.js sends them as fields.
     const msg = raw.phase ? raw : (parseWebLlmProgress(raw.progress, raw.text) as typeof raw);
+    // Only a download can stall. Loading from cache and compiling GPU shaders can run for minutes on a
+    // phone without any progress event, and killing the worker then would throw the loaded model away.
+    if (msg.phase === "cache" || msg.progress >= 1 || /^Finish loading|^Loading model from cache/.test(msg.text)) clearTimeout(this.stallTimer);
+    else this.armStall();
     let install: InstallInfo | undefined;
     if (msg.loadedBytes !== undefined && msg.phase) {
       const now = performance.now();
@@ -220,6 +223,17 @@ class LlmClient {
       case "progress":
         if (this.state.status === "loading") this.onProgress(msg);
         break;
+      case "reloading": {
+        // Tokens streamed before the failure are discarded; the retried request streams from scratch.
+        const p = this.pending.get(msg.id);
+        if (p) {
+          p.text = "";
+          p.cutAt = undefined;
+        }
+        // Weights are already cached, so no download (and no stall watchdog) is involved.
+        this.set({ status: "loading", progress: 0, progressText: msg.reason, install: undefined, attempt: 1, retryAt: undefined });
+        break;
+      }
       case "ready":
         this.clearTimers();
         writePending(null);

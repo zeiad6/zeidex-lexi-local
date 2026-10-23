@@ -1,7 +1,7 @@
 {
   "name": "zeidex-lexi-local",
   "productName": "Zeidex Lexi Local",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Private, in-browser summarizer, quiz maker and document Q&A for papers and books — local WebGPU models, optional cloud providers.",
   "private": true,
   "type": "module",

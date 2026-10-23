@@ -124,11 +124,23 @@ export const nativeFetch: typeof fetch | undefined = android
     })
   : undefined;
 
+// One foreground service serves every job, so it may only stop when the last running job ends
+// (a model reload finishing mid-summary must not drop the summary's screen-off protection).
+const activeJobs = new Set<string>();
+
 /** Long jobs keep running with the screen off on Android: a foreground service holds the process. */
 export const job = {
-  start: (label: string) => android?.jobStart(label),
+  start: (label: string) => {
+    activeJobs.add(label);
+    android?.jobStart(label);
+  },
   progress: (label: string, done: number, total: number) => android?.jobProgress(label, done, total),
-  end: (title: string, body: string, ok: boolean) => android?.jobEnd(title, body, ok),
+  /** `title` is the label the job was started with. */
+  end: (title: string, body: string, ok: boolean) => {
+    activeJobs.delete(title);
+    if (activeJobs.size) android?.notify(title, body);
+    else android?.jobEnd(title, body, ok);
+  },
 };
 
 export async function copyText(text: string) {

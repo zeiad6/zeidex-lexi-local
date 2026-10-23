@@ -5,7 +5,7 @@ import { toHtml } from "./export/html";
 import { toDocx } from "./export/docx";
 import { unzip } from "./zip";
 import { classifyLoadError } from "./install";
-import { parseWebLlmProgress } from "@/workers/protocol";
+import { ENGINE_GONE, parseWebLlmProgress } from "@/workers/protocol";
 
 const summary = `Water stress:
 • Groundwater supplies **more than 80%** of water [1].
@@ -90,4 +90,12 @@ test("WebLLM progress text becomes bytes and phase", () => {
   expect(p).toMatchObject({ phase: "fetch", loadedBytes: 400 * 2 ** 20, totalBytes: 1600 * 2 ** 20 });
   expect(parseWebLlmProgress(0.5, "Loading model from cache[19/38]: 800MB loaded. 50% completed")).toMatchObject({ phase: "cache" });
   expect(parseWebLlmProgress(0, "Start to fetch params")).toEqual({ type: "progress", progress: 0, text: "Start to fetch params" });
+});
+
+test("a model WebLLM dropped after a lost GPU device is recognised for automatic reload", () => {
+  const msg = "Model not loaded before trying to complete ChatCompletionRequest. Please ensure you have called MLCEngine.reload(model)";
+  expect(ENGINE_GONE.test(msg)).toBe(true);
+  expect(ENGINE_GONE.test("Device was lost. This can happen due to insufficient memory")).toBe(true);
+  expect(ENGINE_GONE.test("TypeError: Failed to fetch")).toBe(false);
+  expect(classifyLoadError(msg)).toBe("gpu-memory");
 });

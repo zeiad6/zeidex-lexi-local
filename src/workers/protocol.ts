@@ -29,10 +29,16 @@ export type WorkerResponse =
       totalBytes?: number;
     }
   | { type: "ready"; backend: Backend; model: string }
+  /** The engine lost its model (GPU device lost); the worker reloads it and retries request `id`. */
+  | { type: "reloading"; id: number; reason: string }
   | { type: "token"; id: number; delta: string }
   | { type: "done"; id: number; text: string; aborted: boolean; tokens: number; ms: number }
   | { type: "cache"; id: number; cached: Record<string, boolean> }
   | { type: "error"; id?: number; message: string };
+
+// WebLLM unloads the model by itself when the GPU device is lost (Android backgrounding the app, GPU
+// memory pressure, a driver reset) and only logs it; the next request then fails with one of these.
+export const ENGINE_GONE = /Model not loaded before trying|ModelNotLoadedError|device (is |was )?lost|lost the device|instance.*disposed/i;
 
 // WebLLM only reports progress as text: "Fetching param cache[3/38]: 120MB fetched. 7% completed, ...".
 const WEBLLM_PROGRESS = /^(Fetching param|Loading model from) cache\[\d+\/\d+\]: (\d+)MB/;
