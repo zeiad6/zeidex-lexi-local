@@ -4,7 +4,8 @@
 // Desktop shell for Windows (MSI) and Linux (AppImage/deb). It runs the bundled server in-process
 // and opens the app in a hardened window. Electron ships Chromium, so WebGPU works the same on
 // every distro instead of depending on the system WebView (WebKitGTK has no WebGPU).
-import { app, BrowserWindow, ipcMain, Menu, session, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, session, shell } from "electron";
+import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,6 +21,7 @@ if (!app.requestSingleInstanceLock()) app.quit();
 
 let server;
 let win;
+let appOrigin = "";
 
 async function createWindow() {
   // The server's data dir holds the LAN certificate; keep it with the app's own data.
@@ -27,6 +29,7 @@ async function createWindow() {
   const { startServer } = await import("../server/server.mjs");
   server ??= await startServer({ host: "127.0.0.1", port: 0, dist: path.join(app.getAppPath(), "dist") });
   const origin = new URL(server.url).origin;
+  appOrigin = origin;
 
   win = new BrowserWindow({
     width: 1320,
@@ -61,6 +64,26 @@ async function updates(manual) {
 
 ipcMain.handle("lexi:check-updates", (_e, manual) => updates(manual));
 ipcMain.handle("lexi:app-info", () => ({ version: app.getVersion(), platform: process.platform }));
+
+// Exports a result as PDF: Chromium lays out the app's print HTML (so Arabic shapes correctly) and
+// writes the file where the user chooses. Only our own page may ask.
+ipcMain.handle("lexi:print-pdf", async (e, html, name) => {
+  if (!appOrigin || !e.senderFrame?.url.startsWith(appOrigin)) throw new Error("forbidden");
+  const safe = `${String(name).replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 120) || "lexi"}.pdf`;
+  const { canceled, filePath } = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender) ?? win, {
+    defaultPath: path.join(app.getPath("documents"), safe),
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+  if (canceled || !filePath) return null;
+  const off = new BrowserWindow({ show: false, webPreferences: { sandbox: true, javascript: false, contextIsolation: true } });
+  try {
+    await off.loadURL(`data:text/html;charset=utf-8;base64,${Buffer.from(String(html)).toString("base64")}`);
+    await writeFile(filePath, await off.webContents.printToPDF({ printBackground: true, preferCSSPageSize: true }));
+    return filePath;
+  } finally {
+    off.destroy();
+  }
+});
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);

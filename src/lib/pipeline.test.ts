@@ -57,10 +57,29 @@ test("fast: a long document is compressed to at most 6 map calls", async () => {
   expect(calls.filter((c) => c === "map").length).toBeLessThanOrEqual(6);
 });
 
-test("max: adds a refine pass and returns the refined text", async () => {
-  const out = await summarize({ ...base, chunks: chunksOf(1, "x"), quality: "max", model: "m4" });
+test("max: refines a draft that misses key terms and returns the refined text", async () => {
+  let stats: { refineSkipped: boolean } | undefined;
+  const out = await summarize({ ...base, keyTerms: ["Mitochondria"], chunks: chunksOf(1, "x"), quality: "max", model: "m4", onStats: (s) => (stats = s) });
   expect(calls).toEqual(["final", "refine"]);
   expect(out).toContain("refined");
+  expect(stats?.refineSkipped).toBe(false);
+});
+
+test("max: skips the refine call when the draft already checks out", async () => {
+  let stats: { refineSkipped: boolean; savedTokens: number } | undefined;
+  const out = await summarize({ ...base, chunks: chunksOf(1, "y"), quality: "max", model: "m4", onStats: (s) => (stats = s) });
+  expect(calls).toEqual(["final"]);
+  expect(out).toContain("point one");
+  expect(stats?.refineSkipped).toBe(true);
+  expect(stats?.savedTokens).toBeGreaterThan(0);
+});
+
+test("repeated sections are summarized once", async () => {
+  let dup = 0;
+  const chunk = chunksOf(1, "dup")[0];
+  await summarize({ ...base, chunks: [chunk, chunksOf(1, "other")[0], chunk], quality: "balanced", model: "m5", onStats: (s) => (dup = s.duplicateSections) });
+  expect(calls.filter((c) => c === "map")).toHaveLength(2);
+  expect(dup).toBe(1);
 });
 
 test("estimateCalls matches the modes", () => {

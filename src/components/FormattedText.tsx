@@ -1,10 +1,8 @@
 import type { ReactNode } from "react";
+import { parseText } from "@/lib/export/model";
 
-// Renders the plain-text conventions the prompts ask for ("• " bullets, "Heading:" lines, Q/A pairs,
-// [n] citations) without a markdown dependency, and tolerates stray markdown small models still emit.
-
-const BULLET = /^\s*([•\-*–▪]|\d+[.)])\s+/;
-const QA = /^(س|ج|Q|A)\s*[:：]\s*/;
+// Renders the blocks parseText() finds ("• " bullets, "Heading:" lines, Q/A pairs, tables, [n] citations)
+// without a markdown dependency. The Markdown/Word/PDF exports use the same parser.
 
 function inline(text: string, onCite?: (n: number) => void): ReactNode[] {
   return text.split(/(\[\d+\])/g).map((part, i) => {
@@ -25,48 +23,57 @@ function inline(text: string, onCite?: (n: number) => void): ReactNode[] {
 }
 
 export function FormattedText({ text, onCite }: { text: string; onCite?: (n: number) => void }) {
-  const blocks: ReactNode[] = [];
-  let list: ReactNode[] = [];
-  const flush = () => {
-    if (list.length) blocks.push(<ul key={`ul${blocks.length}`} className="my-2 list-disc space-y-1 ps-5 marker:text-accent">{list}</ul>);
-    list = [];
-  };
-
-  text
-    .replace(/\*\*/g, "")
-    .split("\n")
-    .forEach((raw, i) => {
-      const line = raw.replace(/^#{1,6}\s*/, "").trimEnd();
-      if (!line.trim()) return flush();
-      if (BULLET.test(line)) {
-        list.push(<li key={i}>{inline(line.replace(BULLET, ""), onCite)}</li>);
-        return;
-      }
-      flush();
-      const qa = line.match(QA);
-      if (qa) {
-        const isQuestion = qa[1] === "س" || qa[1] === "Q";
-        blocks.push(
-          <p key={i} className={isQuestion ? "mt-3 font-semibold" : "text-muted-foreground"}>
-            <span className="me-1 text-accent">{qa[1]}:</span>
-            {inline(line.slice(qa[0].length), onCite)}
-          </p>,
+  const blocks = parseText(text).map((b, i) => {
+    switch (b.t) {
+      case "ul":
+        return (
+          <ul key={i} className="my-2 list-disc space-y-1 ps-5 marker:text-accent">
+            {b.items.map((item, j) => (
+              <li key={j}>{inline(item, onCite)}</li>
+            ))}
+          </ul>
         );
-      } else if (/[:：]$/.test(line) && line.length <= 80) {
-        blocks.push(
+      case "qa":
+        return (
+          <p key={i} className={b.role === "q" ? "mt-3 font-semibold" : "text-muted-foreground"}>
+            <span className="me-1 text-accent">{b.label}:</span>
+            {inline(b.text, onCite)}
+          </p>
+        );
+      case "h":
+        return (
           <h3 key={i} className="mt-4 font-display text-base font-semibold first:mt-0">
-            {line.replace(/[:：]$/, "")}
-          </h3>,
+            {b.text}
+          </h3>
         );
-      } else {
-        blocks.push(
+      case "table":
+        return (
+          <div key={i} className="my-3 overflow-x-auto">
+            <table className="w-full border-collapse text-xs">
+              <tbody>
+                {b.rows.map((r, j) => (
+                  <tr key={j} className={j === 0 ? "bg-accent/10 font-semibold" : ""}>
+                    {r.map((c, k) => (
+                      <td key={k} className="border border-border px-2 py-1 align-top">
+                        {inline(c, onCite)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      case "p":
+        return (
           <p key={i} className="my-2">
-            {inline(line, onCite)}
-          </p>,
+            {inline(b.text, onCite)}
+          </p>
         );
-      }
-    });
-  flush();
+      default:
+        return null; // mcq/card/sources blocks only come from structured exports, never from model text
+    }
+  });
   // Model output can contain URLs or glued words; wrap them instead of widening the page.
   return <div className="leading-relaxed [overflow-wrap:anywhere]">{blocks}</div>;
 }

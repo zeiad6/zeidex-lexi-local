@@ -57,6 +57,8 @@ class Bridge(private val activity: MainActivity, private val web: WebView) {
 
     @JavascriptInterface fun openExternal(url: String) = activity.runOnUiThread { activity.openExternal(Uri.parse(url)) }
 
+    @JavascriptInterface fun printHtml(html: String, jobName: String) = activity.runOnUiThread { activity.printHtml(html, jobName) }
+
     @JavascriptInterface fun setSystemBars(dark: Boolean) = activity.runOnUiThread { activity.setSystemBars(dark) }
 
     @JavascriptInterface fun appInfo(): String = JSONObject()

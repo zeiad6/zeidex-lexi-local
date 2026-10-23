@@ -97,7 +97,7 @@ ${isRawText ? "</document>" : "</notes>"}`,
 }
 
 /** Self-refinement: a second pass that checks the draft against its source and fixes it. */
-export function refinePrompt(draft: string, source: string, format: SummaryFormat, lang: Lang): ChatMessage[] {
+export function refinePrompt(draft: string, source: string, format: SummaryFormat, lang: Lang, issues: string[] = []): ChatMessage[] {
   return [
     { role: "system", content: system(lang) },
     {
@@ -108,7 +108,7 @@ export function refinePrompt(draft: string, source: string, format: SummaryForma
 3. Remove repetition and tighten wording.
 4. Keep the required format:
 ${FORMAT_TASK[format]}
-Output ONLY the improved final version, with no comments about the changes.
+${issues.length ? `Automatic checks found these problems in the draft:\n${issues.map((i) => `- ${i}`).join("\n")}\n` : ""}Output ONLY the improved final version, with no comments about the changes.
 
 <source>
 ${source}

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
-import { classifyInterfaces, firewallAdvice, isPrivateIPv4, proxyTarget, safeJoin, startServer } from "./server.mjs";
+import { classifyInterfaces, firewallAdvice, isPrivateIPv4, proxyTarget, safeJoin, sameOrigin, startServer } from "./server.mjs";
 
 test("private ranges", () => {
   for (const ip of ["10.0.0.1", "172.16.5.4", "192.168.1.9", "100.64.0.1"]) assert.ok(isPrivateIPv4(ip), ip);
@@ -53,10 +53,21 @@ test("server: static, SPA fallback, LAN toggle only from loopback", async () => 
     assert.equal((await fetch(s.url + "some/deep/route")).headers.get("content-type"), "text/html; charset=utf-8");
     let info = await (await fetch(s.url + "api/lan")).json();
     assert.equal(info.enabled, false);
+    // A web page on another origin must not be able to open the LAN port through the user's browser.
+    const csrf = await fetch(s.url + "api/share", { method: "POST", headers: { origin: "https://evil.example" }, body: JSON.stringify({ enable: true }) });
+    assert.equal(csrf.status, 403);
     info = await (await fetch(s.url + "api/share", { method: "POST", body: JSON.stringify({ enable: true }) })).json();
     assert.equal(info.enabled, true);
     assert.equal((await fetch(s.url + "api/proxy/custom/x", { headers: { "x-lexi-base-url": "https://evil.example" } })).status, 403);
   } finally {
     await s.close();
   }
+});
+
+test("sameOrigin refuses foreign origins and rebinding hosts", () => {
+  assert.equal(sameOrigin({ host: "127.0.0.1:8787" }), true);
+  assert.equal(sameOrigin({ host: "127.0.0.1:8787", origin: "http://127.0.0.1:8787" }), true);
+  assert.equal(sameOrigin({ host: "127.0.0.1:8787", origin: "https://evil.example" }), false);
+  assert.equal(sameOrigin({ host: "rebind.evil.example:8787", origin: "http://rebind.evil.example:8787" }, true), false);
+  assert.equal(sameOrigin({ host: "192.168.1.5:8788", origin: "https://192.168.1.5:8788" }), true);
 });

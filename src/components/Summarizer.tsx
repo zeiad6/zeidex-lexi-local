@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Check, Copy, Download, Square } from "lucide-react";
+import { AlertTriangle, Check, Copy, ShieldCheck, Square } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -8,10 +8,12 @@ import { FormattedText } from "@/components/FormattedText";
 import { useI18n, type Lang } from "@/i18n";
 import { abortAll } from "@/lib/engine";
 import { errorText } from "@/lib/errors";
-import { download, recorder, saveRun, titleOf, useHistory } from "@/lib/history";
+import { modelsOf, recorder, saveRun, titleOf, useHistory } from "@/lib/history";
+import { ExportMenu } from "@/components/ExportMenu";
+import { fileStem, summaryDoc } from "@/lib/export";
 import { copyText, job } from "@/lib/native";
 import { Rating } from "@/components/HistoryDialog";
-import { Aborted, estimateCalls, summarize, type Quality, type SummaryProgress } from "@/lib/pipeline";
+import { Aborted, estimateCalls, summarize, type Quality, type RunStats, type SummaryProgress } from "@/lib/pipeline";
 import type { SummaryFormat } from "@/lib/prompts";
 import { formatDuration } from "@/lib/utils";
 
@@ -42,6 +44,7 @@ export function Summarizer({
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [entryId, setEntryId] = useState<string | null>(null);
+  const [stats, setStats] = useState<RunStats | null>(null);
   const history = useHistory();
   const controller = useRef<AbortController | null>(null);
   const running = !!progress;
@@ -52,6 +55,7 @@ export function Summarizer({
     setOutputLang(outLang);
     setError("");
     setEntryId(null);
+    setStats(null);
     const rec = recorder();
     job.start(t.summaryTitle);
     try {
@@ -70,6 +74,7 @@ export function Summarizer({
         },
         onToken: setOutput,
         record: rec.record,
+        onStats: setStats,
       });
       setOutput(text);
       job.end(t.summaryTitle, titleOf(text), true);
@@ -174,15 +179,14 @@ export function Summarizer({
                 {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
                 {copied ? t.copied : t.copy}
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => download(`${docName.replace(/\.[^.]+$/, "")}-summary.md`, output, "text/markdown;charset=utf-8")}
-              >
-                <Download aria-hidden />
-                {t.download}
-              </Button>
             </div>
+            {!running && stats && <RunReport stats={stats} />}
+            {!running && (
+              <ExportMenu
+                stem={fileStem(docName, "summary")}
+                build={() => summaryDoc(output, { docName, lang: outputLang, quality, models: modelsOf(entryId, history) })}
+              />
+            )}
             <article
               dir={outputLang === "ar" ? "rtl" : "ltr"}
               lang={outputLang}
@@ -194,5 +198,48 @@ export function Summarizer({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/** Accuracy and token-saving facts about the finished run. */
+function RunReport({ stats }: { stats: RunStats }) {
+  const { t, lang } = useI18n();
+  const g = stats.grounding;
+  const saved = [
+    stats.cachedSections && t.savedCached(stats.cachedSections),
+    stats.duplicateSections && t.savedDuplicates(stats.duplicateSections),
+    stats.refineSkipped && t.savedRefine,
+  ].filter(Boolean);
+  return (
+    <div className="space-y-1.5 text-xs" aria-live="polite">
+      {g && g.unsupported.length > 0 && (
+        <p className="flex items-start gap-1.5 rounded-md bg-accent/15 p-2">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-accent" aria-hidden />
+          <span>
+            {t.groundUnsupported}{" "}
+            <span dir="ltr" className="font-semibold">
+              {g.unsupported.join(", ")}
+            </span>
+          </span>
+        </p>
+      )}
+      {g && !g.unsupported.length && g.checked > 0 && (
+        <p className="flex items-center gap-1.5 text-success">
+          <ShieldCheck className="size-3.5" aria-hidden />
+          {t.groundVerified(g.checked)}
+        </p>
+      )}
+      {g && g.coverage < 1 && (
+        <p className="text-muted-foreground">
+          {t.groundCoverage}: <span dir="ltr">{Math.round(g.coverage * 100)}%</span>
+          {g.missingTerms.length > 0 && <> · {g.missingTerms.join(lang === "ar" ? "، " : ", ")}</>}
+        </p>
+      )}
+      {stats.savedTokens > 0 && (
+        <p className="text-muted-foreground">
+          {t.savedTokens(Math.round(stats.savedTokens / 100) / 10)} — {saved.join(" · ")}
+        </p>
+      )}
+    </div>
   );
 }

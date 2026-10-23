@@ -132,5 +132,9 @@ export async function saveRun(
   }
 }
 
+/** Models that produced a saved run, for export metadata ("local:Qwen3.5-2B…", "cloud:gpt-…"). */
+export const modelsOf = (id: string | null, list: HistoryEntry[]) =>
+  (id ? list.find((h) => h.id === id)?.models : undefined)?.map((m) => m.replace(/^(local|cloud):/, "")) ?? [];
+
 /** First meaningful line, for list titles. */
 export const titleOf = (text: string) => (text.split("\n").find((l) => l.trim().length > 3) ?? text).trim().slice(0, 90);

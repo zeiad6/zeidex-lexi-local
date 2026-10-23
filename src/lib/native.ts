@@ -18,12 +18,16 @@ export interface AndroidBridge {
   setSystemBars(dark: boolean): void;
   appInfo(): string;
   openExternal(url: string): void;
+  /** Added in 1.1; older installed shells lack it. */
+  printHtml?(html: string, jobName: string): void;
 }
 
 /** Exposed by electron/preload.cjs. */
 export interface DesktopBridge {
   checkUpdates(manual: boolean): Promise<unknown>;
   appInfo(): Promise<{ version: string; platform: string }>;
+  /** Resolves to the saved path, or null when the user cancels the save dialog. */
+  printToPdf?(html: string, name: string): Promise<string | null>;
 }
 
 export type HttpEvent =
@@ -133,11 +137,13 @@ export async function copyText(text: string) {
 }
 
 /** Saves a generated file: MediaStore Downloads on Android, a normal download elsewhere. */
-export function saveFile(name: string, content: string, type: string): string | null {
-  if (android) return android.saveFile(name, type, toBase64(new TextEncoder().encode(content)));
-  const url = URL.createObjectURL(new Blob([content], { type }));
+export function saveFile(name: string, content: string | Uint8Array, type: string): string | null {
+  const bytes = typeof content === "string" ? new TextEncoder().encode(content) : content;
+  if (android) return android.saveFile(name, type, toBase64(bytes));
+  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type }));
   Object.assign(document.createElement("a"), { href: url, download: name }).click();
-  URL.revokeObjectURL(url);
+  // Revoking synchronously can cancel the download in Safari and older Chromium.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
   return null;
 }
 

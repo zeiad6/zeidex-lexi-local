@@ -26,7 +26,8 @@ async function unload() {
 
 async function loadWebGpu(model: string, contextTokens: number) {
   const { CreateMLCEngine } = await import("@mlc-ai/web-llm");
-  // WebLLM stores weights and the compiled model library in Cache Storage, so later loads work offline.
+  // WebLLM stores every weight shard in Cache Storage as soon as it arrives and skips stored shards on
+  // the next load, so an interrupted download resumes from the last finished shard.
   webgpuEngine = await CreateMLCEngine(
     model,
     { initProgressCallback: (r) => post({ type: "progress", progress: r.progress, text: r.text }) },
@@ -42,7 +43,9 @@ async function loadCpu(model: string, dtype: string) {
     device: "wasm",
     dtype: dtype as "q4",
     progress_callback: (p) => {
-      if (p.status === "progress_total") post({ type: "progress", progress: p.progress / 100, text: p.name });
+      // shortcut: transformers.js caches whole files, so an interrupted CPU download restarts the current file.
+      if (p.status === "progress_total")
+        post({ type: "progress", progress: p.progress / 100, text: p.name, phase: "fetch", loadedBytes: p.loaded, totalBytes: p.total });
     },
   })) as TextGenerationPipeline;
 }
@@ -144,6 +147,12 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     }
   } catch (err) {
     const id = req.type === "generate" || req.type === "cache" ? req.id : undefined;
-    post({ type: "error", id, message: err instanceof Error ? err.message : String(err) });
+    const message = err instanceof Error ? err.message : String(err);
+    post({ type: "error", id, message });
+    // A lost GPU device leaves a dead engine behind; report it as an engine error so the UI offers a reload.
+    if (req.type === "generate" && /device (is |was )?lost|lost the device/i.test(message)) {
+      await unload().catch(() => undefined);
+      post({ type: "error", message });
+    }
   }
 };

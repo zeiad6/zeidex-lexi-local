@@ -19,6 +19,9 @@
 ## Features
 
 - **Private by default.** PDF.js extracts the text inside the browser, and WebLLM runs the model on your GPU through WebGPU. In Local mode no document, prompt or result leaves the device.
+- **Opens your documents as they are.** PDF, Word (`.docx`), PowerPoint (`.pptx`), Excel (`.xlsx`), EPUB, HTML, CSV/TSV, Jupyter notebooks, JSON, TXT and Markdown. Every format is converted to structured Markdown (headings, lists, tables) on the device, following the approach of [microsoft/markitdown](https://github.com/microsoft/markitdown). Models read that structure well, and it costs fewer tokens than raw markup.
+- **Save results as PDF, Word or Markdown.** Summaries, study sets, Q&A sessions and history entries export with a designed layout: a cover block, metadata, headings, highlighted correct answers, citation badges, page numbers, and right-to-left layout for Arabic. PDFs are laid out by the browser engine, so Arabic letters join correctly. On Android the system print dialog saves the PDF; the desktop app writes it directly.
+- **Model downloads you can pause and resume.** Progress shows size, speed and time left. A dropped connection is retried automatically, and a download stopped by the user or by closing the app continues from the last finished part. Storage is checked before the download fills the disk. GPU memory or limit errors offer a one-click switch to a lighter model or to the CPU engine.
 - **Deep summaries** of book-length texts. The text is split into chunks, notes are written per chunk, and the notes are merged until they fit one context. Three output formats: bullet points, executive summary, or exam questions.
 - **Smart test maker.** It writes multiple-choice questions with explanations, plus flashcards. In *Maximum* quality the model also answers its own questions blind, and drops any item where it disagrees with the answer key.
 - **Ask the document.** BM25 retrieval picks the relevant passages. The model answers only from those passages, with clickable `[n]` citations.
@@ -51,7 +54,11 @@ When both engines are available, *Maximum* quality uses cross-model verification
 | TF-IDF key terms, injected into the final prompt | The model covers the whole document, not just the first section |
 | Extractive compression (TF-IDF sentence ranking) | *Fast* mode reads a whole book in a few calls |
 | Token budgeting by script (Arabic ≈ 2.4 characters per token) | Prompts never overflow the model's context window |
-| Notes cache keyed by model, language and chunk hash | Changing the format re-uses every chunk already read |
+| Notes cache keyed by model, language and chunk SHA-256, kept in IndexedDB | Changing the format, re-running, or reopening the same book next week re-uses every chunk already read |
+| Repeated-section skipping | Duplicated pages and sections cost no model calls |
+| Number grounding check (every figure in a summary must appear in the source) | Flags invented numbers; in *Maximum* quality the refine pass is told exactly which figures to fix |
+| Key-term coverage check | Missing topics are named for the refine pass; a draft that already checks out skips the refine call and its tokens |
+| Citation cleanup | Q&A answers never cite a passage that was not retrieved |
 | Loop guard (detects the repetition period while streaming) | Stops degenerate repetition from small models |
 | Self-refinement pass | Removes unsupported claims and adds points the draft missed |
 | Quiz self-verification, Jaccard dedupe, answer shuffle | No wrong, duplicate or position-biased questions |
@@ -185,6 +192,10 @@ See [SECURITY.md](SECURITY.md). In short:
 - History, ratings and keys stay in your browser (IndexedDB and `localStorage`).
 - The server serves only the built app, and only the host machine can turn LAN sharing on.
 - The proxy is not an open relay.
+
+## Credits
+
+The document converters follow the design of [microsoft/markitdown](https://github.com/microsoft/markitdown) (MIT) and are a clean TypeScript implementation that runs on the device; no markitdown code or Python runtime is bundled.
 
 ## License
 

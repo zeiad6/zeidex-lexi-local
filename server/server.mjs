@@ -76,6 +76,22 @@ export function safeJoin(root, urlPath) {
 const isLoopback = (addr = "") => addr === "::1" || addr.startsWith("127.") || addr === "::ffff:127.0.0.1";
 
 /**
+ * Blocks cross-site requests to /api/*: any web page in the user's browser can POST to 127.0.0.1, and
+ * that request passes the loopback check. Browsers always send Origin on cross-origin POSTs, so a
+ * mismatching Origin is refused. The Host check stops DNS-rebinding names from posing as localhost.
+ */
+export function sameOrigin(headers, loopbackOnly = false) {
+  const host = headers.host ?? "";
+  if (loopbackOnly && !/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host)) return false;
+  if (!headers.origin) return true; // same-origin GETs and non-browser clients send none
+  try {
+    return new URL(headers.origin).host === host;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Decides the upstream for /api/proxy/<provider>/...: catalog hosts are always allowed; a custom
  * base URL only when its host is allowlisted (LEXI_PROXY_ALLOW) or it is localhost and the caller
  * is local too. This keeps the proxy from becoming an open relay on the LAN.
@@ -277,6 +293,7 @@ export async function startServer(opts = {}) {
     securityHeaders(res, coep);
     const { pathname } = new URL(req.url, "http://x");
     try {
+      if (pathname.startsWith("/api/") && !sameOrigin(req.headers, pathname === "/api/share")) return sendJson(res, 403, { error: "cross-origin request refused" });
       if (pathname.startsWith("/api/proxy/")) {
         const [, , , providerId, ...rest] = pathname.split("/");
         const search = new URL(req.url, "http://x").search;

@@ -1,17 +1,97 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Cpu, HardDrive, Trash2, Zap } from "lucide-react";
+import { AlertTriangle, Cpu, HardDrive, Pause, Play, RotateCw, Trash2, X, Zap } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { useI18n } from "@/i18n";
+import { useI18n, type Dict } from "@/i18n";
 import type { GpuReport } from "@/lib/gpu";
+import type { LoadErrorKind } from "@/lib/install";
 import { llm, useEngine } from "@/lib/llm-client";
 import { CPU_MODEL, forGpu, WEBGPU_MODELS, type ModelOption } from "@/lib/models";
-import { cn, formatBytes } from "@/lib/utils";
-import { useSettings } from "@/lib/settings";
+import { cn, formatBytes, formatDuration } from "@/lib/utils";
+import { updateSettings, useSettings } from "@/lib/settings";
 import { checkForModelUpdates, markUpdated } from "@/lib/updates";
 import { notify } from "@/lib/notify";
+
+const HINT: Record<Exclude<LoadErrorKind, "other">, (t: Dict) => string> = {
+  network: (t) => t.errNetwork,
+  quota: (t) => t.errQuota,
+  "gpu-memory": (t) => t.errGpuMemory,
+  "gpu-limits": (t) => t.errGpuLimits,
+};
+
+/** Download/load progress with size, speed, time left, automatic retries, pause and resume. */
+function InstallProgress() {
+  const { t } = useI18n();
+  const engine = useEngine();
+  const [now, setNow] = useState(Date.now());
+  const paused = engine.status === "paused";
+  const info = engine.install;
+
+  useEffect(() => {
+    if (!engine.retryAt) return;
+    const id = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(id);
+  }, [engine.retryAt]);
+
+  const label = paused ? t.installPaused : info?.phase === "cache" ? t.phaseCacheLoad : info ? t.phaseDownload : t.loading;
+  const pct = Math.round(engine.progress * 100);
+  return (
+    <div className="space-y-2 rounded-lg border border-border p-3" aria-live="polite">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs">
+        <span className="font-medium">
+          {label}
+          {engine.model && (
+            <span className="ms-1 text-muted-foreground" dir="ltr">
+              · {engine.model}
+            </span>
+          )}
+        </span>
+        {!paused && <span dir="ltr">{pct}%</span>}
+      </div>
+      <Progress value={paused ? (info?.totalBytes ? (info.loadedBytes / info.totalBytes) * 100 : 0) : pct} label={label} />
+      {info && (
+        <p className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground" dir="ltr">
+          <span>
+            {formatBytes(info.loadedBytes)}
+            {info.totalBytes ? ` / ${formatBytes(info.totalBytes)}` : ""}
+          </span>
+          {info.speed ? <span>{formatBytes(info.speed)}/s</span> : null}
+          {info.eta ? (
+            <span>
+              {formatDuration(info.eta)} {t.remaining}
+            </span>
+          ) : null}
+        </p>
+      )}
+      {engine.retryAt && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-accent">
+          <span>{t.retryIn(Math.max(0, Math.ceil((engine.retryAt - now) / 1000)), engine.attempt + 1)}</span>
+          <Button variant="ghost" size="sm" onClick={() => llm.retryNow()}>
+            <RotateCw aria-hidden />
+            {t.retryNow}
+          </Button>
+        </div>
+      )}
+      {paused && (
+        <>
+          <p className="text-xs text-muted-foreground">{t.pausedHint}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => llm.resume()}>
+              <Play aria-hidden />
+              {t.resume}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => llm.cancelInstall()}>
+              <X aria-hidden />
+              {t.cancelInstall}
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export function EngineDashboard({
   gpu,
@@ -181,18 +261,8 @@ export function EngineDashboard({
           </fieldset>
         )}
 
-        {/* Load state */}
-        {busy && (
-          <div className="space-y-1.5" aria-live="polite">
-            <div className="flex justify-between gap-3 text-xs text-muted-foreground">
-              <span className="truncate" dir="ltr">
-                {engine.progressText || t.loading}
-              </span>
-              <span dir="ltr">{Math.round(engine.progress * 100)}%</span>
-            </div>
-            <Progress value={engine.progress * 100} label={t.loading} />
-          </div>
-        )}
+        {/* Install / load state */}
+        {(busy || engine.status === "paused") && <InstallProgress />}
         {engine.status === "ready" && engine.calls > 0 && (
           <dl className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
             {[
@@ -212,12 +282,40 @@ export function EngineDashboard({
         )}
 
         {engine.status === "error" && (
-          <p className="rounded-md bg-danger/10 p-3 text-sm text-danger" dir="auto">
-            {t.error}: {engine.error}
-          </p>
+          <div className="space-y-2 rounded-md bg-danger/10 p-3 text-sm" role="alert">
+            <p className="text-danger" dir="auto">
+              {engine.errorKind && engine.errorKind !== "other" ? HINT[engine.errorKind](t) : `${t.error}: ${engine.error}`}
+            </p>
+            {engine.errorKind && engine.errorKind !== "other" && (
+              <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]" dir="ltr">
+                {engine.error}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {engine.errorKind === "network" && (
+                <Button size="sm" onClick={() => llm.resume()}>
+                  <RotateCw aria-hidden />
+                  {t.resume}
+                </Button>
+              )}
+              {(engine.errorKind === "gpu-memory" || engine.errorKind === "gpu-limits" || engine.errorKind === "quota") && webgpu && (
+                <>
+                  {!selected.id.startsWith("Qwen3.5-0.8B") && (
+                    <Button size="sm" variant="outline" onClick={() => onSelect(WEBGPU_MODELS.find((m) => m.id.startsWith("Qwen3.5-0.8B"))!)}>
+                      {t.useSmaller}
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => updateSettings({ backend: "wasm" })}>
+                    <Cpu aria-hidden />
+                    {t.useCpu}
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
         )}
 
-        {gpu && (
+        {gpu && engine.status !== "paused" && (
           <div className="flex flex-wrap items-center gap-2">
             {engine.status === "ready" ? (
               <>
@@ -231,6 +329,12 @@ export function EngineDashboard({
             ) : (
               <Button onClick={() => llm.load(backend, resolve(selected))} disabled={busy}>
                 {busy ? t.loading : t.load}
+              </Button>
+            )}
+            {busy && (
+              <Button variant="outline" size="sm" onClick={() => llm.pause()}>
+                <Pause aria-hidden />
+                {t.pause}
               </Button>
             )}
             {cached[selected.id] && engine.status !== "ready" && !busy && (

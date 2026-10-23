@@ -117,6 +117,7 @@ export default function App() {
     if (engine.status === "loading") job.start(t.modelJob);
     else if (engine.status === "ready") job.end(t.modelJob, engine.model ?? "", true);
     else if (engine.status === "error") job.end(t.modelJob, engine.error ?? "", false);
+    else if (engine.status === "paused") job.end(t.modelJob, t.installPaused, false);
   }, [engine.status]);
   useEffect(() => {
     if (engine.status === "loading") job.progress(t.modelJob, Math.round(engine.progress * 100), 100);

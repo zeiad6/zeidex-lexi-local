@@ -6,8 +6,11 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n";
 import { extractFile, type ExtractedDoc } from "@/lib/pdf";
+import { CONVERTIBLE } from "@/lib/convert";
 import { onOpenFile } from "@/lib/native";
 import { cn } from "@/lib/utils";
+
+const ACCEPT = [".pdf", ".txt", ".md", ".markdown", ...CONVERTIBLE.map((e) => `.${e}`), "application/pdf", "text/plain", "text/markdown"].join(",");
 
 export function Importer({
   doc,
@@ -78,7 +81,7 @@ export function Importer({
         <input
           ref={input}
           type="file"
-          accept=".pdf,.txt,.md,.markdown,application/pdf,text/plain,text/markdown"
+          accept={ACCEPT}
           className="sr-only"
           onChange={(e) => {
             handle(e.target.files?.[0]);

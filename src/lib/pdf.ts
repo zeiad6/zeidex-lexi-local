@@ -1,6 +1,7 @@
 import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { cleanPages } from "./clean";
+import { convertToPages } from "./convert";
 import { getSettings } from "./settings";
 
 // PDF.js parses the file in its own Web Worker; only the extracted strings come back to the UI thread.
@@ -46,11 +47,15 @@ async function pdfLines(file: File, onProgress: (done: number, total: number) =>
 export async function extractFile(file: File, onProgress: (done: number, total: number) => void): Promise<ExtractedDoc> {
   const ext = file.name.split(".").pop()?.toLowerCase();
   let pages: string[][];
-  if (file.type === "application/pdf" || ext === "pdf") pages = await pdfLines(file, onProgress);
+  const converted = file.type === "application/pdf" || ext === "pdf" ? null : await convertToPages(file);
+  if (converted) {
+    pages = converted;
+    onProgress(1, 1);
+  } else if (file.type === "application/pdf" || ext === "pdf") pages = await pdfLines(file, onProgress);
   else if (file.type.startsWith("text/") || ext === "txt" || ext === "md" || ext === "markdown") {
     pages = [(await file.text()).split(/\r?\n/)];
     onProgress(1, 1);
   } else throw new Error("unsupported");
   const { removeHeaders, cutReferences } = getSettings();
-  return { name: file.name, pages: pages.length, ...cleanPages(pages, { removeHeaders, cutReferences }) };
+  return { name: file.name, pages: pages.length, ...cleanPages(pages, { removeHeaders, cutReferences, structured: !!converted }) };
 }

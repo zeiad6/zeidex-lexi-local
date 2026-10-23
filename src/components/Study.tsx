@@ -2,12 +2,14 @@ import { useRef, useState } from "react";
 import { CheckCircle2, ChevronLeft, ChevronRight, RotateCcw, Square, XCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ExportMenu } from "@/components/ExportMenu";
+import { fileStem, studyDoc } from "@/lib/export";
 import { Progress } from "@/components/ui/progress";
 import { Segmented } from "@/components/Segmented";
 import { useI18n, type Lang } from "@/i18n";
 import { abortAll } from "@/lib/engine";
 import { errorText } from "@/lib/errors";
-import { recorder, saveRun, useHistory } from "@/lib/history";
+import { modelsOf, recorder, saveRun, useHistory } from "@/lib/history";
 import { job } from "@/lib/native";
 import { Rating } from "@/components/HistoryDialog";
 import { generateStudySet, type Quality, type StudyResult } from "@/lib/pipeline";
@@ -125,6 +127,10 @@ export function Study({
 
         {set && (set.mcqs.length > 0 || set.flashcards.length > 0) && (
           <div className="space-y-4" dir={outLang === "ar" ? "rtl" : "ltr"} lang={outLang}>
+            <ExportMenu
+              stem={fileStem(docName, "study")}
+              build={() => studyDoc(set, { docName, lang: outLang, quality, models: modelsOf(entryId, history) })}
+            />
             <Segmented
               label={t.studyTitle}
               value={tab}

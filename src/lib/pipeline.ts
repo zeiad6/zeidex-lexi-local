@@ -17,6 +17,8 @@ import {
   type SummaryFormat,
 } from "./prompts";
 import { batchByLength, chunkText, extractJson, spread, validateStudySet, type Flashcard, type Mcq } from "./text";
+import { cleanCitations, groundingReport, refineIssues, type GroundingReport } from "./grounding";
+import { kvGet, kvSet } from "./kv";
 
 /**
  * fast: extractive pre-compression so a whole book costs at most `fastMaxChunks` (a setting) map calls.
@@ -58,9 +60,34 @@ function hash(s: string): string {
   return (h >>> 0).toString(36) + s.length.toString(36);
 }
 
-// Notes depend only on (model, language, chunk text), so changing the output format or re-running
-// reuses every map step already paid for.
+/** SHA-256 where available (secure contexts); the persistent cache must not collide across books. */
+async function digest(s: string): Promise<string> {
+  if (!globalThis.crypto?.subtle) return hash(s);
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Bump when chunkNotesPrompt changes, so notes written by the old prompt are not reused.
+const NOTES_VERSION = 1;
+
+// Notes depend only on (model, language, chunk text), so changing the output format, re-running, or
+// re-opening the same book next week reuses every map step already paid for (memory + IndexedDB).
 const notesCache = new Map<string, string>();
+
+/** What a run saved: shown to the user and handy for tuning. */
+export interface RunStats {
+  /** Sections whose notes came from the cache instead of a model call. */
+  cachedSections: number;
+  /** Sections skipped because they repeat an earlier section word for word. */
+  duplicateSections: number;
+  /** True when the max-quality refine pass was skipped because the draft already checked out. */
+  refineSkipped: boolean;
+  /** Estimated input tokens not sent to a model thanks to the above. */
+  savedTokens: number;
+  grounding?: GroundingReport;
+}
+
+const fingerprint = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
 
 export async function summarize(opts: {
   chunks: string[];
@@ -74,10 +101,23 @@ export async function summarize(opts: {
   onProgress: (p: SummaryProgress) => void;
   onToken: (full: string) => void;
   record?: Recorder;
+  onStats?: (s: RunStats) => void;
 }): Promise<string> {
   const { chunkChars, format, lang, quality, signal, onProgress, onToken } = opts;
   const s = getSettings();
-  let chunks = opts.chunks;
+  const stats: RunStats = { cachedSections: 0, duplicateSections: 0, refineSkipped: false, savedTokens: 0 };
+  // Repeated pages/sections (common in scanned books and course packs) cost a full map call each.
+  const seen = new Set<string>();
+  let chunks = opts.chunks.filter((c) => {
+    const f = fingerprint(c);
+    if (seen.has(f)) {
+      stats.duplicateSections++;
+      stats.savedTokens += estimateTokens(c);
+      return false;
+    }
+    seen.add(f);
+    return true;
+  });
 
   if (quality === "fast" && chunks.length > s.fastMaxChunks) {
     onProgress({ phase: "compress", step: 1, total: 1 });
@@ -106,12 +146,23 @@ export async function summarize(opts: {
   };
 
   const notesFor = async (chunk: string, i: number) => {
-    const key = `${opts.model}|${lang}|${hash(chunk)}`;
-    const hit = notesCache.get(key);
-    if (hit) return hit;
+    const key = `notes${NOTES_VERSION}|${opts.model}|${lang}|${await digest(chunk)}`;
+    const hit = notesCache.get(key) ?? (await kvGet(key));
+    if (hit) {
+      notesCache.set(key, hit);
+      stats.cachedSections++;
+      stats.savedTokens += estimateTokens(chunk) + PROMPT_OVERHEAD;
+      return hit;
+    }
     const notes = await run("map", chunkNotesPrompt(chunk, i, chunks.length, lang), s.notesTokens);
     notesCache.set(key, notes);
+    void kvSet(key, notes);
     return notes;
+  };
+  const finish = (text: string) => {
+    stats.grounding ??= groundingReport(text, opts.chunks.join("\n\n"), opts.keyTerms);
+    opts.onStats?.(stats);
+    return text;
   };
 
   let draft: string;
@@ -141,13 +192,23 @@ export async function summarize(opts: {
     draft = await run("final", finalPrompt(source, format, lang, false, opts.keyTerms), s.finalTokens, true);
   }
 
-  if (quality !== "max") return draft;
+  if (quality !== "max") return finish(draft);
+  // Check the draft before paying for a refine: numbers it invents and key topics it skips become
+  // explicit fix instructions; a draft with neither problem is kept as is.
+  const check = groundingReport(draft, opts.chunks.join("\n\n"), opts.keyTerms);
+  const issues = refineIssues(check);
+  if (!check.unsupported.length && check.coverage >= 0.9) {
+    stats.refineSkipped = true;
+    stats.savedTokens += estimateTokens(draft) + estimateTokens(source) + PROMPT_OVERHEAD;
+    stats.grounding = check;
+    return finish(draft);
+  }
   const room = s.contextTokens - PROMPT_OVERHEAD - estimateTokens(draft) - s.refineTokens;
-  if (room < 300) return draft; // draft already fills the window; a refine pass would truncate it
+  if (room < 300) return finish(draft); // draft already fills the window; a refine pass would truncate it
   report("refine", 1, 1);
-  const refined = await run("refine", refinePrompt(draft, fitTokens(source, room), format, lang), s.refineTokens, true);
+  const refined = await run("refine", refinePrompt(draft, fitTokens(source, room), format, lang, issues), s.refineTokens, true);
   // A refine that collapses to a fraction of the draft is a failure mode of small models, not an improvement.
-  return refined.length > draft.length * 0.5 ? refined : draft;
+  return finish(refined.length > draft.length * 0.5 ? refined : draft);
 }
 
 /** Rough count of model calls, shown before the user starts a long job. */
@@ -277,5 +338,5 @@ export async function ask(opts: {
     onToken: (_, full) => opts.onToken(stripThinking(full)),
   });
   if (r.aborted) throw new Aborted();
-  return { text: stripThinking(r.text), sources };
+  return { text: cleanCitations(stripThinking(r.text), sources.length), sources };
 }

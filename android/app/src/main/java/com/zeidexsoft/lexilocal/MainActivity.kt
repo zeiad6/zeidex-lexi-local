@@ -15,6 +15,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.print.PrintAttributes
+import android.print.PrintManager
 import android.provider.OpenableColumns
 import android.provider.Settings
 import android.util.Base64
@@ -139,6 +141,28 @@ class MainActivity : Activity() {
     }
 
     /** Matches the system bars to the page theme (the app has its own dark/light toggle). */
+    // Held until the print job has its adapter; otherwise the off-screen WebView can be collected mid-layout.
+    private var printView: WebView? = null
+
+    /** Prints export HTML through the system dialog, which offers "Save as PDF" on every device. */
+    fun printHtml(html: String, jobName: String) {
+        val view = WebView(this)
+        view.settings.javaScriptEnabled = false
+        view.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(v: WebView, url: String?) {
+                val name = jobName.replace(Regex("[\\\\/:*?\"<>|]"), "_").take(100).ifBlank { "Lexi Local" }
+                getSystemService(PrintManager::class.java).print(
+                    name,
+                    v.createPrintDocumentAdapter(name),
+                    PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build(),
+                )
+                printView = null
+            }
+        }
+        printView = view
+        view.loadDataWithBaseURL(AssetServer.ORIGIN, html, "text/html", "utf-8", null)
+    }
+
     fun setSystemBars(dark: Boolean) {
         val bg = if (dark) Color.parseColor("#0b121d") else Color.parseColor("#faf6ee")
         root.setBackgroundColor(bg)
@@ -273,6 +297,8 @@ class MainActivity : Activity() {
     }.getOrNull()
 
     fun openExternal(uri: Uri) {
+        // Only web and mail links: an intent:// or content:// URI must not launch other apps' components.
+        if (uri.scheme?.lowercase() !in setOf("https", "http", "mailto")) return
         runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }
 

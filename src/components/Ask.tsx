@@ -6,7 +6,9 @@ import { FormattedText } from "@/components/FormattedText";
 import { useI18n, type Lang } from "@/i18n";
 import { abortAll } from "@/lib/engine";
 import { errorText } from "@/lib/errors";
-import { recorder, saveRun, useHistory } from "@/lib/history";
+import { modelsOf, recorder, saveRun, useHistory } from "@/lib/history";
+import { ExportMenu } from "@/components/ExportMenu";
+import { answerDoc, fileStem } from "@/lib/export";
 import { Rating } from "@/components/HistoryDialog";
 import type { Bm25 } from "@/lib/nlp";
 import { Aborted, ask, type Answer } from "@/lib/pipeline";
@@ -117,6 +119,19 @@ export function Ask({
           </div>
         )}
 
+        {turns.some((x) => x.answer) && (
+          <ExportMenu
+            stem={fileStem(docName, "qa")}
+            build={() =>
+              answerDoc(
+                // Oldest first, like a transcript; turns are stored newest first for the screen.
+                [...turns].reverse().flatMap((x) => (x.answer ? [{ question: x.question, text: x.answer.text, sources: x.answer.sources }] : [])),
+                { docName, lang: turns[0].lang, models: [...new Set(turns.flatMap((x) => modelsOf(x.entryId, history)))] },
+              )
+            }
+          />
+        )}
+
         <ol className="space-y-4">
           {turns.map((turn) => (
             <li key={turn.id} className="rounded-lg border border-border p-4" dir={turn.lang === "ar" ? "rtl" : "ltr"} lang={turn.lang}>
@@ -144,9 +159,7 @@ export function Ask({
                         <li
                           key={s.n}
                           dir="auto"
-                          className={"[overflow-wrap:anywhere] " + 
-                            openSource === `${turn.id}:${s.n}` ? "rounded-md bg-accent/15 p-2" : "rounded-md bg-muted p-2"
-                          }
+                          className={`[overflow-wrap:anywhere] rounded-md p-2 ${openSource === `${turn.id}:${s.n}` ? "bg-accent/15" : "bg-muted"}`}
                         >
                           <span className="me-1 font-semibold text-accent">[{s.n}]</span>
                           {s.text.length > 400 ? `${s.text.slice(0, 400)}…` : s.text}

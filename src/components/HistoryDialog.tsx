@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FormattedText } from "@/components/FormattedText";
 import { useI18n } from "@/i18n";
-import { clearHistory, deleteHistory, download, rateHistory, refreshHistory, toTrainingJsonl, useHistory, type HistoryKind } from "@/lib/history";
+import { clearHistory, deleteHistory, download, modelsOf, rateHistory, refreshHistory, toTrainingJsonl, useHistory, type HistoryKind } from "@/lib/history";
+import { ExportMenu } from "@/components/ExportMenu";
+import { fileStem, historyDoc } from "@/lib/export";
 import { cn } from "@/lib/utils";
 
 const ICON: Record<HistoryKind, typeof BookOpenText> = { summary: BookOpenText, study: GraduationCap, ask: MessageCircleQuestion };
@@ -114,8 +116,13 @@ export function HistoryDialog({ open, onClose }: { open: boolean; onClose: () =>
                   </div>
                 </div>
                 {expanded && (
-                  <div className="max-h-96 overflow-y-auto border-t border-border bg-muted/50 p-4 text-sm [overflow-wrap:anywhere]" dir={e.lang === "ar" ? "rtl" : "ltr"}>
-                    <FormattedText text={e.output} />
+                  <div className="border-t border-border bg-muted/50">
+                    <div className="border-b border-border px-4 py-2">
+                      <ExportMenu stem={fileStem(e.docName, e.kind)} build={() => historyDoc({ ...e, models: modelsOf(e.id, entries) })} />
+                    </div>
+                    <div className="max-h-96 overflow-y-auto p-4 text-sm [overflow-wrap:anywhere]" dir={e.lang === "ar" ? "rtl" : "ltr"}>
+                      <FormattedText text={e.output} />
+                    </div>
                   </div>
                 )}
               </li>

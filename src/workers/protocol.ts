@@ -19,9 +19,35 @@ export type WorkerRequest =
   | { type: "cache"; id: number; op: "has" | "delete"; backend: Backend; models: string[] };
 
 export type WorkerResponse =
-  | { type: "progress"; progress: number; text: string }
+  | {
+      type: "progress";
+      progress: number;
+      text: string;
+      /** "fetch" = downloading weights, "cache" = reading them from storage onto the device. */
+      phase?: "fetch" | "cache";
+      loadedBytes?: number;
+      totalBytes?: number;
+    }
   | { type: "ready"; backend: Backend; model: string }
   | { type: "token"; id: number; delta: string }
   | { type: "done"; id: number; text: string; aborted: boolean; tokens: number; ms: number }
   | { type: "cache"; id: number; cached: Record<string, boolean> }
   | { type: "error"; id?: number; message: string };
+
+// WebLLM only reports progress as text: "Fetching param cache[3/38]: 120MB fetched. 7% completed, ...".
+const WEBLLM_PROGRESS = /^(Fetching param|Loading model from) cache\[\d+\/\d+\]: (\d+)MB/;
+const MiB = 1024 * 1024;
+
+export function parseWebLlmProgress(progress: number, text: string): WorkerResponse {
+  const m = text.match(WEBLLM_PROGRESS);
+  if (!m) return { type: "progress", progress, text };
+  const loadedBytes = Number(m[2]) * MiB;
+  return {
+    type: "progress",
+    progress,
+    text,
+    phase: m[1] === "Fetching param" ? "fetch" : "cache",
+    loadedBytes,
+    totalBytes: progress > 0 ? loadedBytes / progress : undefined,
+  };
+}

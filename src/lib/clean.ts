@@ -17,9 +17,17 @@ const signature = (line: string) => line.trim().toLowerCase().replace(/[\d٠-٩]
 const EDGE = 3;
 const isEdge = (i: number, len: number) => i < EDGE || i >= len - EDGE;
 
-export function cleanPages(pages: string[][], opts = { removeHeaders: true, cutReferences: true }): CleanReport {
+/**
+ * `structured`: pages already hold logical lines (Markdown from convert.ts), so lines are kept as they are
+ * and running-header detection is skipped — Office headers/footers live outside the body text.
+ */
+export function cleanPages(
+  pages: string[][],
+  opts: { removeHeaders: boolean; cutReferences: boolean; structured?: boolean } = { removeHeaders: true, cutReferences: true },
+): CleanReport {
+  const removeHeaders = opts.removeHeaders && !opts.structured;
   let repeated = new Set<string>();
-  if (opts.removeHeaders && pages.length >= 3) {
+  if (removeHeaders && pages.length >= 3) {
     const counts = new Map<string, number>();
     for (const lines of pages) {
       const sigs = new Set(lines.filter((_, i) => isEdge(i, lines.length)).map(signature));
@@ -37,7 +45,7 @@ export function cleanPages(pages: string[][], opts = { removeHeaders: true, cutR
   let removedLines = 0;
   let kept = pages.map((lines) =>
     lines.filter((l, i) => {
-      const drop = (opts.removeHeaders && PAGE_NUMBER.test(l)) || isHeader(l, i, lines.length);
+      const drop = (removeHeaders && PAGE_NUMBER.test(l)) || isHeader(l, i, lines.length);
       if (drop && l.trim()) removedLines++;
       return !drop;
     }),
@@ -49,7 +57,7 @@ export function cleanPages(pages: string[][], opts = { removeHeaders: true, cutR
   let seen = 0;
   search: for (let p = 0; opts.cutReferences && p < kept.length; p++) {
     for (let i = 0; i < kept[p].length; i++, seen++) {
-      if (seen >= total * 0.6 && REFERENCES.test(kept[p][i])) {
+      if (seen >= total * 0.6 && REFERENCES.test(kept[p][i].replace(/^#+\s*/, ""))) {
         kept = [...kept.slice(0, p), kept[p].slice(0, i)];
         referencesCut = true;
         break search;
@@ -57,7 +65,7 @@ export function cleanPages(pages: string[][], opts = { removeHeaders: true, cutR
     }
   }
 
-  const text = kept.map(joinLines).filter(Boolean).join("\n\n");
+  const text = kept.map((l) => (opts.structured ? l.join("\n").trim() : joinLines(l))).filter(Boolean).join("\n\n");
   return { text, removedLines, referencesCut };
 }
 
